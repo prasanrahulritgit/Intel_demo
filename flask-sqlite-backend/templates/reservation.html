@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Device Reservation</h2>
+    <p>Welcome, {{ current_user.username }}!</p>
+    
+    <form method="POST" action="{{ url_for('make_reservation') }}">
+        <div class="form-group">
+            <label for="device">Select Device:</label>
+            <select class="form-control" id="device" name="device_id" required>
+                {% for device in devices %}
+                <option value="{{ device.device_id }}">{{ device.device_id }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="ip_type">Select IP Type:</label>
+            <select class="form-control" id="ip_type" name="ip_type" required>
+                <option value="rutomatrix">Rutomatrix (1 user max)</option>
+                <option value="ctp1">CTP1 (3 users max)</option>
+                <option value="ctp2">CTP2 (3 users max)</option>
+                <option value="ctp3">CTP3 (3 users max)</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="start_time">Start Time:</label>
+            <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="end_time">End Time:</label>
+            <input type="datetime-local" class="form-control" id="end_time" name="end_time" required>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Reserve</button>
+    </form>
+    
+    <h3 class="mt-4">Current Reservations</h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Device</th>
+                <th>IP Type</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for res in current_user.reservations %}
+            <tr>
+                <td>{{ res.device.device_id }}</td>
+                <td>{{ res.ip_type }}</td>
+                <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>Active</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

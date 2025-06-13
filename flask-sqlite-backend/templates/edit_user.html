@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Edit User</h1>
+
+<form method="POST" action="{{ url_for('update_user', user_id=user.id) }}">
+    <div>
+        <label>Username:</label>
+        <input type="text" name="user_name" value="{{ user.user_name }}" required>
+    </div>
+    <div>
+        <label>User IP:</label>
+        <input type="text" name="user_ip" value="{{ user.user_ip }}">
+    </div>
+    <div>
+        <label>New Password (leave blank to keep current):</label>
+        <input type="password" name="password">
+    </div>
+    <button type="submit">Update User</button>
+    <a href="{{ url_for('user_index') }}">Cancel</a>
+</form>
+{% endblock %}

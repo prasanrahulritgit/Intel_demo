@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Device List Management</h1>
+
+<h2>Add New Device</h2>
+<form method="POST" action="{{ url_for('add_device') }}">
+    <input type="text" name="device_id" placeholder="Device ID" required>
+    <input type="text" name="rutomatrix_ip" placeholder="Rutomatrix IP">
+    <input type="text" name="ctp1_ip" placeholder="CTP1 IP">
+    <input type="text" name="ctp2_ip" placeholder="CTP2 IP">
+    <input type="text" name="ctp3_ip" placeholder="CTP3 IP">
+    <button type="submit">Add Device</button>
+</form>
+
+<h2>View Devices</h2>
+<div class="view-options">
+    <button onclick="showRegularView()">Show Regular View</button>
+    <button onclick="fetchDevices()">Load via API</button>
+</div>
+
+<!-- Regular Device List Table -->
+<div id="regular-view">
+    <h3>Device List</h3>
+    <table class="device-table">
+        <thead>
+            <tr>
+                <th>Device ID</th>
+                <th>Rutomatrix IP</th>
+                <th>CTP1 IP</th>
+                <th>CTP2 IP</th>
+                <th>CTP3 IP</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td>{{ device.device_id }}</td>
+                <td>{{ device.rutomatrix_ip }}</td>
+                <td>{{ device.ctp1_ip }}</td>
+                <td>{{ device.ctp2_ip }}</td>
+                <td>{{ device.ctp3_ip }}</td>
+                <td class="actions">
+                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='rutomatrix_ip') }}">Edit Rutomatrix</a> |
+                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp1_ip') }}">Edit CTP1</a> |
+                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp2_ip') }}">Edit CTP2</a> |
+                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp3_ip') }}">Edit CTP3</a> |
+                    <a href="{{ url_for('delete_device', device_id=device.device_id) }}" onclick="return confirm('Are you sure you want to delete this device?')">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- API Device List Container -->
+<div id="api-view" style="display: none;">
+    <h3>Devices Loaded via API</h3>
+    <div id="api-devices-container"></div>
+</div>
+
+<h2>Individual IP Access</h2>
+<table class="device-table">
+    <thead>
+        <tr>
+            <th>Device ID</th>
+            <th>View Rutomatrix IP</th>
+            <th>View CTP1 IP</th>
+            <th>View CTP2 IP</th>
+            <th>View CTP3 IP</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for device in devices %}
+        <tr>
+            <td>{{ device.device_id }}</td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'rutomatrix_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp1_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp2_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp3_ip')">View</button></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div id="ip-display"></div>
+
+
+<script>
+// Show regular view and hide API view
+function showRegularView() {
+    document.getElementById('regular-view').style.display = 'block';
+    document.getElementById('api-view').style.display = 'none';
+}
+
+// Fetch devices via API
+function fetchDevices() {
+    fetch('/api/devices')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('api-devices-container');
+            container.innerHTML = '';
+            
+            // Create a table to display the devices
+            const table = document.createElement('table');
+            table.className = 'device-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Device ID</th>
+                        <th>Rutomatrix IP</th>
+                        <th>CTP1 IP</th>
+                        <th>CTP2 IP</th>
+                        <th>CTP3 IP</th>
+                    </tr>
+                </thead>
+                <tbody id="devices-body"></tbody>
+            `;
+            
+            const tbody = table.querySelector('#devices-body');
+            data.devices.forEach(device => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${device.device_id}</td>
+                    <td>${device.rutomatrix_ip || '-'}</td>
+                    <td>${device.ctp1_ip || '-'}</td>
+                    <td>${device.ctp2_ip || '-'}</td>
+                    <td>${device.ctp3_ip || '-'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            container.appendChild(table);
+            
+            // Switch views
+            document.getElementById('regular-view').style.display = 'none';
+            document.getElementById('api-view').style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error fetching devices:', error);
+            document.getElementById('api-devices-container').innerHTML = 
+                '<p class="error">Error loading devices. Check console for details.</p>';
+        });
+}
+
+function fetchIP(deviceId, ipType) {
+    fetch(`/api/devices/${deviceId}/${ipType}`)
+        .then(response => response.json())
+        .then(data => {
+            const display = document.getElementById('ip-display');
+            display.innerHTML = `
+                <div class="ip-result">
+                    <h3>Device ${data.device_id}</h3>
+                    <p><strong>${ipType.replace('_', ' ').toUpperCase()}:</strong> ${data[ipType] || 'Not set'}</p>
+                    <p>Retrieved at: ${new Date().toLocaleTimeString()}</p>
+                </div>
+            `;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('ip-display').innerHTML = 
+                '<p class="error">Error loading IP address</p>';
+        });
+}
+</script>
+
+<style>
+
+.ip-result {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.device-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+.device-table th, .device-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+.device-table th {
+    background-color: #f2f2f2;
+}
+.actions {
+    white-space: nowrap;
+}
+.view-options {
+    margin: 20px 0;
+}
+.view-options button {
+    margin-right: 10px;
+    padding: 5px 10px;
+}
+.error {
+    color: red;
+}
+</style>
+{% endblock %}
