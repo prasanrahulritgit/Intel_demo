@@ -4,7 +4,7 @@
     <h2>Device Reservation</h2>
     <p>Welcome, {{ current_user.username }}!</p>
     
-    <!-- Flash messages -->
+    
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -99,6 +99,32 @@
         </table>
     </div>
 </div>
+
+<!-- Current user's reservations -->
+<h3>Your Reservations</h3>
+<ul>
+{% for reservation in user_reservations %}
+    <li>
+        Device {{ reservation.device_id }} ({{ reservation.ip_type }})
+        from {{ reservation.start_time }} to {{ reservation.end_time }}
+        <form method="POST" action="{{ url_for('cancel_reservation', reservation_id=reservation.id) }}">
+            <button type="submit">Cancel</button>
+        </form>
+    </li>
+{% endfor %}
+</ul>
+
+<!-- Other users' reservations -->
+<h3>Other Users' Reservations</h3>
+<ul>
+{% for reservation in other_reservations %}
+    <li>
+        Device {{ reservation.device_id }} ({{ reservation.ip_type }})
+        from {{ reservation.start_time }} to {{ reservation.end_time }}
+        Booked by {{ reservation.user.user_name }}
+    </li>
+{% endfor %}
+</ul>
 
 <!-- JavaScript for form validation and cancellation confirmation -->
 <script>

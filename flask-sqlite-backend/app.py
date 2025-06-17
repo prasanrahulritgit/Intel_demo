@@ -123,7 +123,7 @@ def register():
     
     return render_template('register.html')
 
-@app.route('/dashboard')
+'''@app.route('/dashboard')
 @login_required
 def dashboard():
     # First clean up expired reservations for current user
@@ -151,8 +151,41 @@ def dashboard():
         devices=devices,
         reservations=reservations,
         now=now
-    )
+    )'''
 
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # First clean up expired reservations for current user
+    now = make_naive(datetime.now(timezone.utc))
+    
+    # Delete expired reservations
+    expired_count = db.session.execute(
+        db.delete(Reservation)
+        .where(Reservation.user_id == current_user.id)
+        .where(Reservation.end_time < now)
+    ).rowcount
+    
+    if expired_count > 0:
+        db.session.commit()
+        app.logger.info(f"Cleaned up {expired_count} expired reservations for user {current_user.id}")
+
+    # Get all devices and all reservations (both current user's and others')
+    devices = Device.query.all()
+    all_reservations = Reservation.query.order_by(Reservation.start_time).all()
+    
+    # Separate current user's reservations from others'
+    user_reservations = [r for r in all_reservations if r.user_id == current_user.id]
+    other_reservations = [r for r in all_reservations if r.user_id != current_user.id]
+    
+    return render_template(
+        'devices.html' if current_user.role == 'admin' else 'reservation.html',
+        devices=devices,
+        user_reservations=user_reservations,  # Current user's reservations
+        other_reservations=other_reservations,  # Other users' reservations
+        now=now,
+        current_user=current_user  # Pass current user to template
+    )
 
 # ========================
 # DEVICE MANAGEMENT ROUTES (ADMIN ONLY)
@@ -456,6 +489,8 @@ def cancel_reservation(reservation_id):
         app.logger.error(f"Cancellation error: {str(e)}")
     
     return redirect(url_for('dashboard'))
+
+
 
 
 if __name__ == '__main__':
