@@ -1,12 +1,13 @@
 from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import Reservation, db, Device, User
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from apscheduler.schedulers.background import BackgroundScheduler
-from atexit import register
+from datetime import datetime, timedelta, timezone
+
 
 
 app = Flask(__name__)
@@ -20,6 +21,32 @@ migrate = Migrate(app, db)
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+
+def cleanup_expired_reservations():
+    """Background task to clean up expired reservations"""
+    with app.app_context():
+        try:
+            now = datetime.now()
+            expired_count = db.session.execute(
+                db.delete(Reservation)
+                .where(Reservation.end_time < now)
+            ).rowcount
+            db.session.commit()
+            app.logger.info(f"Cleaned up {expired_count} expired reservations")
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Cleanup error: {str(e)}")
+
+# Initialize scheduler when app starts
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(
+    func=cleanup_expired_reservations,
+    trigger='interval',
+    minutes=1  # Run every 1 minutes
+)
+scheduler.start()
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -45,8 +72,8 @@ with app.app_context():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    from forms import LoginForm  # Import your form class
-    form = LoginForm()  # Create form instance
+    from forms import LoginForm  
+    form = LoginForm()  
     
     if form.validate_on_submit():
         username = form.username.data
@@ -99,13 +126,32 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if current_user.role == 'admin':
-        devices = Device.query.all()
-        return render_template('devices.html', devices=devices)
-    else:
-        devices = Device.query.all()
-        return render_template('reservation.html', devices=devices)
+    # First clean up expired reservations for current user
+    now = make_naive(datetime.now(timezone.utc))
     
+    # Delete expired reservations
+    expired_count = db.session.execute(
+        db.delete(Reservation)
+        .where(Reservation.user_id == current_user.id)
+        .where(Reservation.end_time < now)
+    ).rowcount
+    
+    if expired_count > 0:
+        db.session.commit()
+        app.logger.info(f"Cleaned up {expired_count} expired reservations for user {current_user.id}")
+
+    # Get remaining reservations
+    devices = Device.query.all()
+    reservations = Reservation.query.filter(
+        Reservation.user_id == current_user.id
+    ).order_by(Reservation.start_time).all()
+    
+    return render_template(
+        'devices.html' if current_user.role == 'admin' else 'reservation.html',
+        devices=devices,
+        reservations=reservations,
+        now=now
+    )
 
 
 # ========================
@@ -305,6 +351,7 @@ def update_user(user_id):
         flash(f'Error updating user: {str(e)}', 'error')
     return redirect(url_for('user_index'))
 
+
 @app.route('/users/delete/<int:user_id>')
 @login_required
 def delete_user(user_id):
@@ -313,144 +360,103 @@ def delete_user(user_id):
     db.session.commit()
     flash('User deleted successfully!', 'success')
     return redirect(url_for('user_index'))
+
+
+
 # ========================
 # RESERVATION ROUTES (FOR REGULAR USERS)
 # ========================
 
-'''@app.route('/reserve', methods=['POST'])
-@login_required
-def make_reservation():
-    if request.method == 'POST':
-        device_id = request.form['device_id']
-        ip_type = request.form['ip_type']
-        
-        try:
-            start_time = datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M')
-            end_time = datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M')
-        except ValueError:
-            flash('Invalid date/time format', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Check time validity
-        if end_time <= start_time:
-            flash('End time must be after start time', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        if start_time < datetime.now():
-            flash('Start time cannot be in the past', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Check maximum concurrent users
-        max_users = 1 if ip_type == 'rutomatrix' else 3
-        current_reservations = Reservation.query.filter(
-            Reservation.device_id == device_id,
-            Reservation.ip_type == ip_type,
-            Reservation.start_time <= end_time,
-            Reservation.end_time >= start_time
-        ).count()
-        
-        if current_reservations >= max_users:
-            flash(f'Cannot reserve - {ip_type} already has maximum users ({max_users})', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Create reservation
-        reservation = Reservation(
-            device_id=device_id,
-            user_id=current_user.id,
-            ip_type=ip_type,
-            start_time=start_time,
-            end_time=end_time
-        )
-        
-        db.session.add(reservation)
-        db.session.commit()
-        flash('Reservation created successfully!', 'success')
-    
-    return redirect(url_for('dashboard'))'''
+
+
+def make_naive(utc_dt):
+    """Convert timezone-aware datetime to naive (for SQLite storage)"""
+    return utc_dt.replace(tzinfo=None) if utc_dt.tzinfo else utc_dt
+
+def make_aware(naive_dt):
+    """Convert naive datetime to timezone-aware (UTC) for comparison"""
+    if naive_dt is None:
+        return None
+    if hasattr(naive_dt, 'tzinfo'):  # Already a datetime object
+        return naive_dt.replace(tzinfo=timezone.utc) if not naive_dt.tzinfo else naive_dt
+    return naive_dt  # Return as-is if not a datetime object
+
 
 @app.route('/reserve', methods=['POST', 'GET'])
 @login_required
 def make_reservation():
-    if request.method == 'POST':
-        # First, clean up any of the CURRENT USER'S expired reservations
-        now = datetime.now()
-        expired_reservations = Reservation.query.filter(
-            Reservation.end_time < now,
-            Reservation.user_id == current_user.id  # Only delete current user's reservations
-        ).all()
-        
-        for reservation in expired_reservations:
-            db.session.delete(reservation)
-        db.session.commit()
-
-        # Process new reservation
+    try:
+        # Get form data
         device_id = request.form['device_id']
         ip_type = request.form['ip_type']
-        
-        try:
-            start_time = datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M')
-            end_time = datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M')
-        except ValueError:
-            flash('Invalid date/time format', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Enhanced time validation
+        start_time = datetime.strptime(request.form['start_time'], '%Y-%m-%dT%H:%M')
+        end_time = datetime.strptime(request.form['end_time'], '%Y-%m-%dT%H:%M')
+        now = datetime.now()
+
+        # Validate times
         if end_time <= start_time:
             flash('End time must be after start time', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        if start_time < datetime.now():
+        elif start_time < now:
             flash('Start time cannot be in the past', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Check reservation overlap (including buffer time if needed)
-        buffer_minutes = 15  # Optional buffer between reservations
-        max_users = 1 if ip_type == 'rutomatrix' else 3
-        
-        overlapping_reservations = Reservation.query.filter(
-            Reservation.device_id == device_id,
-            Reservation.ip_type == ip_type,
-            Reservation.start_time <= (end_time + timedelta(minutes=buffer_minutes)),
-            Reservation.end_time >= (start_time - timedelta(minutes=buffer_minutes))
-        ).count()
-        
-        if overlapping_reservations >= max_users:
-            flash(f'Time slot unavailable - {ip_type} already has maximum users ({max_users})', 'danger')
-            return redirect(url_for('dashboard'))
-        
-        # Create new reservation
-        try:
-            reservation = Reservation(
-                device_id=device_id,
-                user_id=current_user.id,
-                ip_type=ip_type,
-                start_time=start_time,
-                end_time=end_time
-            )
-            db.session.add(reservation)
-            db.session.commit()
-            flash('Reservation created successfully!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash('Failed to create reservation. Please try again.', 'danger')
-            app.logger.error(f"Reservation failed: {str(e)}")
+        else:
+            # Check for conflicts
+            buffer = timedelta(minutes=15)
+            max_users = 1 if ip_type == 'rutomatrix' else 3
+            
+            conflicts = Reservation.query.filter(
+                Reservation.device_id == device_id,
+                Reservation.ip_type == ip_type,
+                Reservation.start_time < end_time + buffer,
+                Reservation.end_time > start_time - buffer
+            ).count()
+            
+            if conflicts >= max_users:
+                flash('Time slot unavailable - maximum users reached', 'danger')
+            else:
+                # Create reservation
+                reservation = Reservation(
+                    device_id=device_id,
+                    user_id=current_user.id,
+                    ip_type=ip_type,
+                    start_time=start_time,
+                    end_time=end_time
+                )
+                db.session.add(reservation)
+                db.session.commit()
+                flash('Reservation created successfully!', 'success')
+                
+    except ValueError:
+        flash('Invalid date/time format', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to create reservation', 'danger')
+        app.logger.error(f"Reservation error: {str(e)}")
     
     return redirect(url_for('dashboard'))
 
-@app.route('/cancel_reservation/<int:reservation_id>', methods=['POST'])
+
+
+
+@app.route('/cancel/<int:reservation_id>', methods=['POST'])
 @login_required
 def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     
-    # Only allow cancellation by owner or admin
-    if reservation.user_id != current_user.id and current_user.role != 'admin':
-        flash('You can only cancel your own reservations', 'danger')
+    if not reservation.can_cancel(current_user):
+        flash('You can only cancel your own upcoming reservations', 'danger')
         return redirect(url_for('dashboard'))
     
-    db.session.delete(reservation)
-    db.session.commit()
-    flash('Reservation cancelled successfully', 'success')
+    try:
+        db.session.delete(reservation)
+        db.session.commit()
+        flash('Reservation cancelled successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to cancel reservation', 'danger')
+        app.logger.error(f"Cancellation error: {str(e)}")
+    
     return redirect(url_for('dashboard'))
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

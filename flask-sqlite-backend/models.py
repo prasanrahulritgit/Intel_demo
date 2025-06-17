@@ -1,3 +1,4 @@
+from flask import app
 from flask_sqlalchemy import SQLAlchemy
 import re
 from datetime import datetime
@@ -96,19 +97,33 @@ class User(db.Model):
     
     def __repr__(self):
         return f'<User {self.user_name}>'
-
+    
 class Reservation(db.Model):
     __tablename__ = 'reservations'
     
     id = db.Column(db.Integer, primary_key=True)
     device_id = db.Column(db.String(50), db.ForeignKey('devices.device_id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    ip_type = db.Column(db.String(20))  # 'rutomatrix', 'ctp1', 'ctp2', 'ctp3'
+    ip_type = db.Column(db.String(20))
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
     
     device = db.relationship('Device', backref='reservations')
     user = db.relationship('User', backref='reservations')
-    
+
+    @property
+    def status(self):
+        """Determine reservation status based on current time"""
+        now = datetime.now()
+        if self.end_time < now:
+            return 'expired'
+        elif self.start_time <= now <= self.end_time:
+            return 'active'
+        return 'upcoming'
+
+    def can_cancel(self, user):
+        """Check if the given user can cancel this reservation"""
+        return self.user_id == user.id and self.status == 'upcoming'
+
     def __repr__(self):
         return f'<Reservation {self.id} for device {self.device_id}>'

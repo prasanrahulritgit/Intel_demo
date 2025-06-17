@@ -4,7 +4,21 @@
     <h2>Device Reservation</h2>
     <p>Welcome, {{ current_user.username }}!</p>
     
-    <form method="POST" action="{{ url_for('make_reservation') }}">
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <form method="POST" action="{{ url_for('make_reservation') }}" id="reservationForm">
         <div class="form-group">
             <label for="device">Select Device:</label>
             <select class="form-control" id="device" name="device_id" required>
@@ -26,39 +40,107 @@
         
         <div class="form-group">
             <label for="start_time">Start Time:</label>
-            <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
+            <input type="datetime-local" class="form-control" id="start_time" name="start_time" required
+                   min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
         </div>
         
         <div class="form-group">
             <label for="end_time">End Time:</label>
-            <input type="datetime-local" class="form-control" id="end_time" name="end_time" required>
+            <input type="datetime-local" class="form-control" id="end_time" name="end_time" required
+                   min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
         </div>
         
         <button type="submit" class="btn btn-primary">Reserve</button>
     </form>
     
-    <h3 class="mt-4">Current Reservations</h3>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Device</th>
-                <th>IP Type</th>
-                <th>Start Time</th>
-                <th>End Time</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for res in current_user.reservations %}
-            <tr>
-                <td>{{ res.device.device_id }}</td>
-                <td>{{ res.ip_type }}</td>
-                <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>Active</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <h3 class="mt-4">Your Reservations</h3>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Device</th>
+                    <th>IP Type</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in current_user.reservations|sort(attribute='start_time') %}
+                <tr>
+                    <td>{{ res.device.device_id }}</td>
+                    <td>{{ res.ip_type }}</td>
+                    <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if res.status == 'expired' %}
+                            <span class="badge badge-secondary">Expired</span>
+                        {% elif res.status == 'active' %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-info">Upcoming</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if res.can_cancel(current_user) %}
+                            <form action="{{ url_for('cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form" style="display:inline;">
+                                <button type="submit" class="btn btn-sm btn-danger cancel-btn">Cancel</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No reservations found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+<!-- JavaScript for form validation and cancellation confirmation -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form validation
+    const form = document.getElementById('reservationForm');
+    const startTime = document.getElementById('start_time');
+    const endTime = document.getElementById('end_time');
+    
+    form.addEventListener('submit', function(e) {
+        const start = new Date(startTime.value);
+        const end = new Date(endTime.value);
+        const now = new Date();
+        
+        if (end <= start) {
+            alert('End time must be after start time');
+            e.preventDefault();
+            return false;
+        }
+        
+        if (start < now) {
+            alert('Start time cannot be in the past');
+            e.preventDefault();
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Set minimum end time when start time changes
+    startTime.addEventListener('change', function() {
+        endTime.min = startTime.value;
+    });
+    
+    // Cancellation confirmation
+    document.querySelectorAll('.cancel-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (!confirm('Are you sure you want to cancel this reservation?')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
