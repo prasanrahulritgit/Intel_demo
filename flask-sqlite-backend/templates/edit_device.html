@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Edit {{ field_name }} for Device {{ device.device_id }}</h2>
 
-<form method="POST" action="{{ url_for('update_device_field', device_id=device.device_id, field=field) }}">
+<form method="POST" action="{{ url_for('device.update_field', device_id=device.device_id, field=field) }}">
     <div>
         <label for="new_value">New {{ field_name }}:</label>
         <input type="text" 
@@ -13,6 +13,6 @@
                required>
     </div>
     <button type="submit">Update</button>
-    <a href="{{ url_for('index') }}" class="button">Cancel</a>
+    <a href="{{ url_for('device.index') }}" class="button">Cancel</a>
 </form>
 {% endblock %}

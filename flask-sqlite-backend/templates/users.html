@@ -4,7 +4,7 @@
 <h1>User Management</h1>
 
 <h2>Add New User</h2>
-<form method="POST" action="{{ url_for('add_user') }}">
+<form method="POST" action="{{ url_for('user.add') }}">
     <input type="text" name="user_name" placeholder="Username" required>
     <input type="text" name="user_ip" placeholder="User ID">
     <input type="password" name="password" placeholder="Password" required>
@@ -28,8 +28,8 @@
             <td>{{ user.user_name }}</td>
             <td>{{ user.user_ip }}</td>
             <td>
-                <a href="{{ url_for('edit_user', user_id=user.id) }}">Edit</a> |
-                <a href="{{ url_for('delete_user', user_id=user.id) }}" 
+                <a href="{{ url_for('user.edit', user_id=user.id) }}">Edit</a> |
+                <a href="{{ url_for('user.delete', user_id=user.id) }}" 
                    onclick="return confirm('Are you sure?')">Delete</a>
             </td>
         </tr>

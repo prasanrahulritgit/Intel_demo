@@ -4,12 +4,16 @@
 <h1>Device List Management</h1>
 
 <h2>Add New Device</h2>
-<form method="POST" action="{{ url_for('add_device') }}">
+<form method="POST" action="{{ url_for('device.add') }}">
     <input type="text" name="device_id" placeholder="Device ID" required>
-    <input type="text" name="rutomatrix_ip" placeholder="Rutomatrix IP">
-    <input type="text" name="ctp1_ip" placeholder="CTP1 IP">
-    <input type="text" name="ctp2_ip" placeholder="CTP2 IP">
-    <input type="text" name="ctp3_ip" placeholder="CTP3 IP">
+    <input type="text" name="PC_IP" placeholder="PC IP">
+    <input type="text" name="Rutomatrix_ip" placeholder="Rutomatrix IP">
+    <input type="text" name="Pulse1_Ip" placeholder="Pulse1 IP">
+    <input type="text" name="Pulse2_ip" placeholder="Pulse2 IP">
+    <input type="text" name="Pulse3_ip" placeholder="Pulse3 IP">
+    <input type="text" name="CT1_ip" placeholder="CT1 IP">
+    <input type="text" name="CT2_ip" placeholder="CT2 IP">
+    <input type="text" name="CT3_ip" placeholder="CT3 IP">
     <button type="submit">Add Device</button>
 </form>
 
@@ -26,10 +30,14 @@
         <thead>
             <tr>
                 <th>Device ID</th>
+                <th>PC IP</th>
                 <th>Rutomatrix IP</th>
-                <th>CTP1 IP</th>
-                <th>CTP2 IP</th>
-                <th>CTP3 IP</th>
+                <th>Pulse1 IP</th>
+                <th>Pulse2 IP</th>
+                <th>Pulse3 IP</th>
+                <th>CT1 IP</th>
+                <th>CT2 IP</th>
+                <th>CT3 IP</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -37,16 +45,24 @@
             {% for device in devices %}
             <tr>
                 <td>{{ device.device_id }}</td>
-                <td>{{ device.rutomatrix_ip }}</td>
-                <td>{{ device.ctp1_ip }}</td>
-                <td>{{ device.ctp2_ip }}</td>
-                <td>{{ device.ctp3_ip }}</td>
+                <td>{{ device.PC_IP }}</td>
+                <td>{{ device.Rutomatrix_ip }}</td>
+                <td>{{ device.Pulse1_Ip }}</td>
+                <td>{{ device.Pulse2_ip }}</td>
+                <td>{{ device.Pulse3_ip }}</td>
+                <td>{{ device.CT1_ip }}</td>
+                <td>{{ device.CT2_ip }}</td>
+                <td>{{ device.CT3_ip }}</td>
                 <td class="actions">
-                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='rutomatrix_ip') }}">Edit Rutomatrix</a> |
-                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp1_ip') }}">Edit CTP1</a> |
-                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp2_ip') }}">Edit CTP2</a> |
-                    <a href="{{ url_for('edit_device_field', device_id=device.device_id, field='ctp3_ip') }}">Edit CTP3</a> |
-                    <a href="{{ url_for('delete_device', device_id=device.device_id) }}" onclick="return confirm('Are you sure you want to delete this device?')">Delete</a>
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='PC_IP') }}">Edit PC</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='Rutomatrix_ip') }}">Edit Rutomatrix</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='Pulse1_Ip') }}">Edit Pulse1</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='Pulse2_ip') }}">Edit Pulse2</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='Pulse3_ip') }}">Edit Pulse3</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='CT1_ip') }}">Edit CT1</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='CT2_ip') }}">Edit CT2</a> |
+                    <a href="{{ url_for('device.edit_field', device_id=device.device_id, field='CT3_ip') }}">Edit CT3</a> |
+                    <a href="{{ url_for('device.delete', device_id=device.device_id) }}" onclick="return confirm('Are you sure you want to delete this device?')">Delete</a>
                 </td>
             </tr>
             {% endfor %}
@@ -65,27 +81,34 @@
     <thead>
         <tr>
             <th>Device ID</th>
-            <th>View Rutomatrix IP</th>
-            <th>View CTP1 IP</th>
-            <th>View CTP2 IP</th>
-            <th>View CTP3 IP</th>
+            <th>PC IP</th>
+            <th>Rutomatrix IP</th>
+            <th>Pulse1 IP</th>
+            <th>Pulse2 IP</th>
+            <th>Pulse3 IP</th>
+            <th>CT1 IP</th>
+            <th>CT2 IP</th>
+            <th>CT3 IP</th>
         </tr>
     </thead>
     <tbody>
         {% for device in devices %}
         <tr>
             <td>{{ device.device_id }}</td>
-            <td><button onclick="fetchIP('{{ device.device_id }}', 'rutomatrix_ip')">View</button></td>
-            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp1_ip')">View</button></td>
-            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp2_ip')">View</button></td>
-            <td><button onclick="fetchIP('{{ device.device_id }}', 'ctp3_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'PC_IP')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'Rutomatrix_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'Pulse1_Ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'Pulse2_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'Pulse3_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'CT1_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'CT2_ip')">View</button></td>
+            <td><button onclick="fetchIP('{{ device.device_id }}', 'CT3_ip')">View</button></td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
 <div id="ip-display"></div>
-
 
 <script>
 // Show regular view and hide API view
@@ -109,10 +132,14 @@ function fetchDevices() {
                 <thead>
                     <tr>
                         <th>Device ID</th>
+                        <th>PC IP</th>
                         <th>Rutomatrix IP</th>
-                        <th>CTP1 IP</th>
-                        <th>CTP2 IP</th>
-                        <th>CTP3 IP</th>
+                        <th>Pulse1 IP</th>
+                        <th>Pulse2 IP</th>
+                        <th>Pulse3 IP</th>
+                        <th>CT1 IP</th>
+                        <th>CT2 IP</th>
+                        <th>CT3 IP</th>
                     </tr>
                 </thead>
                 <tbody id="devices-body"></tbody>
@@ -123,10 +150,14 @@ function fetchDevices() {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${device.device_id}</td>
-                    <td>${device.rutomatrix_ip || '-'}</td>
-                    <td>${device.ctp1_ip || '-'}</td>
-                    <td>${device.ctp2_ip || '-'}</td>
-                    <td>${device.ctp3_ip || '-'}</td>
+                    <td>${device.PC_IP || '-'}</td>
+                    <td>${device.Rutomatrix_ip || '-'}</td>
+                    <td>${device.Pulse1_Ip || '-'}</td>
+                    <td>${device.Pulse2_ip || '-'}</td>
+                    <td>${device.Pulse3_ip || '-'}</td>
+                    <td>${device.CT1_ip || '-'}</td>
+                    <td>${device.CT2_ip || '-'}</td>
+                    <td>${device.CT3_ip || '-'}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -152,7 +183,7 @@ function fetchIP(deviceId, ipType) {
             display.innerHTML = `
                 <div class="ip-result">
                     <h3>Device ${data.device_id}</h3>
-                    <p><strong>${ipType.replace('_', ' ').toUpperCase()}:</strong> ${data[ipType] || 'Not set'}</p>
+                    <p><strong>${ipType.replace('_', ' ').replace(/([A-Z])/g, ' $1').trim()}:</strong> ${data[ipType] || 'Not set'}</p>
                     <p>Retrieved at: ${new Date().toLocaleTimeString()}</p>
                 </div>
             `;
@@ -166,7 +197,6 @@ function fetchIP(deviceId, ipType) {
 </script>
 
 <style>
-
 .ip-result {
     margin: 20px 0;
     padding: 15px;

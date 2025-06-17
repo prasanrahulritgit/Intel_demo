@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
+'''from flask import Flask, jsonify, render_template, request, redirect, url_for, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import Reservation, db, Device, User
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -123,35 +123,7 @@ def register():
     
     return render_template('register.html')
 
-'''@app.route('/dashboard')
-@login_required
-def dashboard():
-    # First clean up expired reservations for current user
-    now = make_naive(datetime.now(timezone.utc))
-    
-    # Delete expired reservations
-    expired_count = db.session.execute(
-        db.delete(Reservation)
-        .where(Reservation.user_id == current_user.id)
-        .where(Reservation.end_time < now)
-    ).rowcount
-    
-    if expired_count > 0:
-        db.session.commit()
-        app.logger.info(f"Cleaned up {expired_count} expired reservations for user {current_user.id}")
 
-    # Get remaining reservations
-    devices = Device.query.all()
-    reservations = Reservation.query.filter(
-        Reservation.user_id == current_user.id
-    ).order_by(Reservation.start_time).all()
-    
-    return render_template(
-        'devices.html' if current_user.role == 'admin' else 'reservation.html',
-        devices=devices,
-        reservations=reservations,
-        now=now
-    )'''
 
 @app.route('/dashboard')
 @login_required
@@ -494,4 +466,60 @@ def cancel_reservation(reservation_id):
 
 
 if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)'''
+
+from flask import Flask
+from flask_login import LoginManager
+from flask_migrate import Migrate
+from models import db, User
+from datetime import datetime
+from werkzeug.security import generate_password_hash
+
+def create_app():
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///device_list.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.secret_key = 'your-secret-key-here'
+
+    # Initialize extensions
+    db.init_app(app)
+    login_manager = LoginManager(app)
+    login_manager.login_view = 'auth.login'
+    migrate = Migrate(app, db)
+
+    
+
+    # Register blueprints
+    from routes.auth_routes import auth_bp
+    from routes.device_routes import device_bp
+    from routes.user_routes import user_bp
+    from routes.reservation_routes import reservation_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(device_bp)
+    app.register_blueprint(user_bp)
+    app.register_blueprint(reservation_bp)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    # Create tables and admin user
+    with app.app_context():
+        db.create_all()
+        if not User.query.filter_by(user_name='admin').first():
+            admin = User(
+                user_name='admin',
+                user_ip='127.0.0.1',
+                password_hash=generate_password_hash('admin123'),
+                role='admin',
+                created_at=datetime.utcnow()
+            )
+            db.session.add(admin)
+            db.session.commit()
+
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
     app.run(host='0.0.0.0', port=5000, debug=True)

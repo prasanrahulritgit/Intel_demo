@@ -4,7 +4,6 @@
     <h2>Device Reservation</h2>
     <p>Welcome, {{ current_user.username }}!</p>
     
-    
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -18,7 +17,7 @@
         {% endif %}
     {% endwith %}
     
-    <form method="POST" action="{{ url_for('make_reservation') }}" id="reservationForm">
+    <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
         <div class="form-group">
             <label for="device">Select Device:</label>
             <select class="form-control" id="device" name="device_id" required>
@@ -67,24 +66,24 @@
                 </tr>
             </thead>
             <tbody>
-                {% for res in current_user.reservations|sort(attribute='start_time') %}
+                {% for res in user_reservations|sort(attribute='start_time') %}
                 <tr>
-                    <td>{{ res.device.device_id }}</td>
+                    <td>{{ res.device_id }}</td>
                     <td>{{ res.ip_type }}</td>
                     <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>
-                        {% if res.status == 'expired' %}
+                        {% if res.end_time < now %}
                             <span class="badge badge-secondary">Expired</span>
-                        {% elif res.status == 'active' %}
+                        {% elif res.start_time <= now <= res.end_time %}
                             <span class="badge badge-success">Active</span>
                         {% else %}
                             <span class="badge badge-info">Upcoming</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if res.can_cancel(current_user) %}
-                            <form action="{{ url_for('cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form" style="display:inline;">
+                        {% if res.start_time > now %}
+                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form" style="display:inline;">
                                 <button type="submit" class="btn btn-sm btn-danger cancel-btn">Cancel</button>
                             </form>
                         {% endif %}
@@ -98,35 +97,48 @@
             </tbody>
         </table>
     </div>
+
+    <h3 class="mt-4">Other Users' Reservations</h3>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Device</th>
+                    <th>IP Type</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Booked By</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for res in other_reservations|sort(attribute='start_time') %}
+                <tr>
+                    <td>{{ res.device_id }}</td>
+                    <td>{{ res.ip_type }}</td>
+                    <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ res.user.user_name }}</td>
+                    <td>
+                        {% if res.end_time < now %}
+                            <span class="badge badge-secondary">Expired</span>
+                        {% elif res.start_time <= now <= res.end_time %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-info">Upcoming</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center">No other reservations found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
-<!-- Current user's reservations -->
-<h3>Your Reservations</h3>
-<ul>
-{% for reservation in user_reservations %}
-    <li>
-        Device {{ reservation.device_id }} ({{ reservation.ip_type }})
-        from {{ reservation.start_time }} to {{ reservation.end_time }}
-        <form method="POST" action="{{ url_for('cancel_reservation', reservation_id=reservation.id) }}">
-            <button type="submit">Cancel</button>
-        </form>
-    </li>
-{% endfor %}
-</ul>
-
-<!-- Other users' reservations -->
-<h3>Other Users' Reservations</h3>
-<ul>
-{% for reservation in other_reservations %}
-    <li>
-        Device {{ reservation.device_id }} ({{ reservation.ip_type }})
-        from {{ reservation.start_time }} to {{ reservation.end_time }}
-        Booked by {{ reservation.user.user_name }}
-    </li>
-{% endfor %}
-</ul>
-
-<!-- JavaScript for form validation and cancellation confirmation -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Form validation

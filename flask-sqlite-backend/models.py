@@ -1,14 +1,10 @@
 from flask import app
 from flask_sqlalchemy import SQLAlchemy
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
-db = SQLAlchemy()
+from sqlalchemy import TypeDecorator
 
-from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
-import re
-from datetime import datetime
 
 db = SQLAlchemy()
 
@@ -23,10 +19,14 @@ class Device(db.Model):
     __tablename__ = 'devices'
     
     device_id = db.Column(db.String(50), primary_key=True)
-    rutomatrix_ip = db.Column(db.String(15))
-    ctp1_ip = db.Column(db.String(15))
-    ctp2_ip = db.Column(db.String(15))
-    ctp3_ip = db.Column(db.String(15))
+    PC_IP = db.Column(db.String(15))
+    Rutomatrix_ip = db.Column(db.String(15))
+    Pulse1_Ip = db.Column(db.String(15))
+    Pulse2_ip = db.Column(db.String(15))
+    Pulse3_ip = db.Column(db.String(15))
+    CT1_ip = db.Column(db.String(15))
+    CT2_ip = db.Column(db.String(15))
+    CT3_ip = db.Column(db.String(15))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -35,18 +35,38 @@ class Device(db.Model):
         self.validate_ips()
     
     def validate_ips(self):
-        for field in ['rutomatrix_ip', 'ctp1_ip', 'ctp2_ip', 'ctp3_ip']:
+        ip_fields = [
+            'PC_IP', 'Rutomatrix_ip', 
+            'Pulse1_Ip', 'Pulse2_ip', 'Pulse3_ip',
+            'CT1_ip', 'CT2_ip', 'CT3_ip'
+        ]
+        for field in ip_fields:
             ip = getattr(self, field)
-            if ip and not validate_ip(ip):
+            if ip and not self.validate_ip(ip):
                 raise ValueError(f"Invalid IP format in {field}")
+    
+    @staticmethod
+    def validate_ip(ip):
+        """Validate IPv4 address format"""
+        parts = ip.split('.')
+        if len(parts) != 4:
+            return False
+        try:
+            return all(0 <= int(part) <= 255 for part in parts)
+        except ValueError:
+            return False
     
     def to_dict(self):
         return {
             'device_id': self.device_id,
-            'rutomatrix_ip': self.rutomatrix_ip,
-            'ctp1_ip': self.ctp1_ip,
-            'ctp2_ip': self.ctp2_ip,
-            'ctp3_ip': self.ctp3_ip,
+            'PC_IP': self.PC_IP,
+            'Rutomatrix_ip': self.Rutomatrix_ip,
+            'Pulse1_Ip': self.Pulse1_Ip,
+            'Pulse2_ip': self.Pulse2_ip,
+            'Pulse3_ip': self.Pulse3_ip,
+            'CT1_ip': self.CT1_ip,
+            'CT2_ip': self.CT2_ip,
+            'CT3_ip': self.CT3_ip,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -98,6 +118,25 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.user_name}>'
     
+class UTCDateTime(TypeDecorator):
+    """Handles datetime conversion between naive and aware"""
+    impl = db.DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value  # Assume naive datetime is UTC
+        raise ValueError("Expected datetime object")
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+
 class Reservation(db.Model):
     __tablename__ = 'reservations'
     
@@ -105,16 +144,26 @@ class Reservation(db.Model):
     device_id = db.Column(db.String(50), db.ForeignKey('devices.device_id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     ip_type = db.Column(db.String(20))
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime, nullable=False)
+    start_time = db.Column(UTCDateTime(), nullable=False)
+    end_time = db.Column(UTCDateTime(), nullable=False)
     
     device = db.relationship('Device', backref='reservations')
     user = db.relationship('User', backref='reservations')
 
+    def __init__(self, **kwargs):
+        """Ensure all datetimes are timezone-aware"""
+        for time_field in ['start_time', 'end_time']:
+            if time_field in kwargs:
+                if isinstance(kwargs[time_field], str):
+                    kwargs[time_field] = datetime.fromisoformat(kwargs[time_field])
+                if kwargs[time_field].tzinfo is None:
+                    kwargs[time_field] = kwargs[time_field].replace(tzinfo=timezone.utc)
+        super().__init__(**kwargs)
+
     @property
     def status(self):
         """Determine reservation status based on current time"""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         if self.end_time < now:
             return 'expired'
         elif self.start_time <= now <= self.end_time:
@@ -127,3 +176,4 @@ class Reservation(db.Model):
 
     def __repr__(self):
         return f'<Reservation {self.id} for device {self.device_id}>'
+
