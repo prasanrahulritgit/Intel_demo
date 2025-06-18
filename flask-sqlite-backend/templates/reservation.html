@@ -1,8 +1,10 @@
-{% extends "base.html" %}
-{% block content %}
+<!--{% extends "base.html" %}
+{% block content %}-->
 <div class="container">
-    <h2>Device Reservation</h2>
-    <p>Welcome, {{ current_user.username }}!</p>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Device Reservation</h2>
+        <p class="mb-0 welcome-text">Welcome, <span class="font-weight-bold">{{ current_user.username }}</span>!</p>
+    </div>
     
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -17,127 +19,208 @@
         {% endif %}
     {% endwith %}
     
-    <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
-        <div class="form-group">
-            <label for="device">Select Device:</label>
-            <select class="form-control" id="device" name="device_id" required>
-                {% for device in devices %}
-                <option value="{{ device.device_id }}">{{ device.device_id }}</option>
-                {% endfor %}
-            </select>
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Make New Reservation</h5>
         </div>
-        
-        <div class="form-group">
-            <label for="ip_type">Select IP Type:</label>
-            <select class="form-control" id="ip_type" name="ip_type" required>
-                <option value="rutomatrix">Rutomatrix (1 user max)</option>
-                <option value="ctp1">CTP1 (3 users max)</option>
-                <option value="ctp2">CTP2 (3 users max)</option>
-                <option value="ctp3">CTP3 (3 users max)</option>
-            </select>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="device">Device</label>
+                        <select class="form-control select2-style" id="device" name="device_id" required>
+                            {% for device in devices %}
+                            <option value="{{ device.device_id }}">{{ device.device_id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="ip_type">IP Type</label>
+                        <select class="form-control select2-style" id="ip_type" name="ip_type" required>
+                            <option value="pc">PC</option>
+                            <option value="rutomatrix">Rutomatrix</option>
+                            <option value="pulse1">Pulse1</option>
+                            <option value="pulse2">Pulse2</option>
+                            <option value="pulse3">Pulse3</option>
+                            <option value="ct1">CT1</option>
+                            <option value="ct2">CT2</option>
+                            <option value="ct3">CT3</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="start_time">Start Time</label>
+                        <input type="datetime-local" class="form-control" id="start_time" name="start_time" required
+                               min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="end_time">End Time</label>
+                        <input type="datetime-local" class="form-control" id="end_time" name="end_time" required
+                               min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block mt-2">
+                    <i class="fas fa-calendar-plus mr-2"></i>Make Reservation
+                </button>
+            </form>
         </div>
-        
-        <div class="form-group">
-            <label for="start_time">Start Time:</label>
-            <input type="datetime-local" class="form-control" id="start_time" name="start_time" required
-                   min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
-        </div>
-        
-        <div class="form-group">
-            <label for="end_time">End Time:</label>
-            <input type="datetime-local" class="form-control" id="end_time" name="end_time" required
-                   min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
-        </div>
-        
-        <button type="submit" class="btn btn-primary">Reserve</button>
-    </form>
-    
-    <h3 class="mt-4">Your Reservations</h3>
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead class="thead-dark">
-                <tr>
-                    <th>Device</th>
-                    <th>IP Type</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for res in user_reservations|sort(attribute='start_time') %}
-                <tr>
-                    <td>{{ res.device_id }}</td>
-                    <td>{{ res.ip_type }}</td>
-                    <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>
-                        {% if res.end_time < now %}
-                            <span class="badge badge-secondary">Expired</span>
-                        {% elif res.start_time <= now <= res.end_time %}
-                            <span class="badge badge-success">Active</span>
-                        {% else %}
-                            <span class="badge badge-info">Upcoming</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if res.start_time > now %}
-                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form" style="display:inline;">
-                                <button type="submit" class="btn btn-sm btn-danger cancel-btn">Cancel</button>
-                            </form>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center">No reservations found</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
     </div>
-
-    <h3 class="mt-4">Other Users' Reservations</h3>
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead class="thead-dark">
-                <tr>
-                    <th>Device</th>
-                    <th>IP Type</th>
-                    <th>Start Time</th>
-                    <th>End Time</th>
-                    <th>Booked By</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for res in other_reservations|sort(attribute='start_time') %}
-                <tr>
-                    <td>{{ res.device_id }}</td>
-                    <td>{{ res.ip_type }}</td>
-                    <td>{{ res.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ res.end_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ res.user.user_name }}</td>
-                    <td>
-                        {% if res.end_time < now %}
-                            <span class="badge badge-secondary">Expired</span>
-                        {% elif res.start_time <= now <= res.end_time %}
-                            <span class="badge badge-success">Active</span>
-                        {% else %}
-                            <span class="badge badge-info">Upcoming</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="6" class="text-center">No other reservations found</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Your Reservations</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive scrollable-table" style="max-height: 400px;">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light sticky-top">
+                                <tr>
+                                    <th>Device</th>
+                                    <th>IP Type</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for res in user_reservations|sort(attribute='start_time') %}
+                                <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}">
+                                    <td>{{ res.device_id }}</td>
+                                    <td>{{ res.ip_type }}</td>
+                                    <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
+                                    <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
+                                    <td>
+                                        {% if res.end_time < now %}
+                                            <span class="badge badge-secondary">Expired</span>
+                                        {% elif res.start_time <= now <= res.end_time %}
+                                            <span class="badge badge-success">Active</span>
+                                        {% else %}
+                                            <span class="badge badge-info">Upcoming</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if res.start_time > now %}
+                                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form d-inline">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No reservations found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">All Active Reservations</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive scrollable-table" style="max-height: 400px;">
+                        <table class="table table-hover mb-0">
+                            <thead class="thead-light sticky-top">
+                                <tr>
+                                    <th>Device</th>
+                                    <th>IP Type</th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>Booked By</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for res in other_reservations|sort(attribute='start_time') %}
+                                <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}">
+                                    <td>{{ res.device_id }}</td>
+                                    <td>{{ res.ip_type }}</td>
+                                    <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
+                                    <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
+                                    <td>{{ res.user.user_name }}</td>
+                                    <td>
+                                        {% if res.end_time < now %}
+                                            <span class="badge badge-secondary">Expired</span>
+                                        {% elif res.start_time <= now <= res.end_time %}
+                                            <span class="badge badge-success">Active</span>
+                                        {% else %}
+                                            <span class="badge badge-info">Upcoming</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4 text-muted">No active reservations found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+    .scrollable-table {
+        overflow-y: auto;
+    }
+    .sticky-top {
+        position: sticky;
+        top: 0;
+        background-color: #f8f9fa;
+        z-index: 10;
+    }
+    .welcome-text {
+        font-size: 1.1rem;
+        color: #495057;
+    }
+    .select2-style {
+        background-color: #f8f9fa;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 8px 12px;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    .badge {
+        font-size: 0.85em;
+        font-weight: 500;
+        padding: 4px 8px;
+    }
+
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .flash-message { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #dff0d8; color: #3c763d; }
+        .error { background-color: #f2dede; color: #a94442; }
+        form { margin: 10px 0; }
+        input[type="text"] { padding: 6px; margin-right: 5px; }
+        button, a.button { padding: 6px 12px; cursor: pointer; }
+        a { color: #337ab7; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .actions { white-space: nowrap; }
+        nav { background: #eee; padding: 10px; margin-bottom: 20px; }
+        nav a { margin-right: 15px; }
+</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

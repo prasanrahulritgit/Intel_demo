@@ -1,9 +1,10 @@
-from flask import app
+from flask import app, current_app
 from flask_sqlalchemy import SQLAlchemy
 import re
 from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import TypeDecorator
+import pytz
 
 
 db = SQLAlchemy()
@@ -55,7 +56,7 @@ class Device(db.Model):
             return all(0 <= int(part) <= 255 for part in parts)
         except ValueError:
             return False
-    
+        
     def to_dict(self):
         return {
             'device_id': self.device_id,
@@ -118,23 +119,27 @@ class User(db.Model):
     def __repr__(self):
         return f'<User {self.user_name}>'
     
-class UTCDateTime(TypeDecorator):
-    """Handles datetime conversion between naive and aware"""
+class ISTDateTime(TypeDecorator):
+    """Handles datetime conversion for Indian Standard Time (IST)"""
     impl = db.DateTime
     cache_ok = True
 
     def process_bind_param(self, value, dialect):
+        """Convert to naive datetime for storage (assumes input is IST)"""
         if value is None:
             return None
         if isinstance(value, datetime):
             if value.tzinfo is not None:
-                return value.astimezone(timezone.utc).replace(tzinfo=None)
-            return value  # Assume naive datetime is UTC
+                # Convert to IST and make naive
+                ist = pytz.timezone('Asia/Kolkata')
+                return value.astimezone(ist).replace(tzinfo=None)
+            return value  # Assume naive datetime is already IST
         raise ValueError("Expected datetime object")
 
     def process_result_value(self, value, dialect):
+        """Attach IST timezone when loading from DB"""
         if value is not None:
-            return value.replace(tzinfo=timezone.utc)
+            return pytz.timezone('Asia/Kolkata').localize(value)
         return value
 
 class Reservation(db.Model):
@@ -144,26 +149,56 @@ class Reservation(db.Model):
     device_id = db.Column(db.String(50), db.ForeignKey('devices.device_id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     ip_type = db.Column(db.String(20))
-    start_time = db.Column(UTCDateTime(), nullable=False)
-    end_time = db.Column(UTCDateTime(), nullable=False)
+    start_time = db.Column(ISTDateTime(), nullable=False)
+    end_time = db.Column(ISTDateTime(), nullable=False)
     
     device = db.relationship('Device', backref='reservations')
     user = db.relationship('User', backref='reservations')
 
     def __init__(self, **kwargs):
-        """Ensure all datetimes are timezone-aware"""
+        """Ensure all datetimes are in IST"""
+        ist = pytz.timezone('Asia/Kolkata')
+        
         for time_field in ['start_time', 'end_time']:
             if time_field in kwargs:
                 if isinstance(kwargs[time_field], str):
-                    kwargs[time_field] = datetime.fromisoformat(kwargs[time_field])
-                if kwargs[time_field].tzinfo is None:
-                    kwargs[time_field] = kwargs[time_field].replace(tzinfo=timezone.utc)
+                    # Parse string as IST
+                    naive_dt = datetime.strptime(kwargs[time_field], '%Y-%m-%dT%H:%M')
+                    kwargs[time_field] = ist.localize(naive_dt)
+                elif kwargs[time_field].tzinfo is None:
+                    # Assume naive is IST
+                    kwargs[time_field] = ist.localize(kwargs[time_field])
+                else:
+                    # Convert to IST
+                    kwargs[time_field] = kwargs[time_field].astimezone(ist)
+        
         super().__init__(**kwargs)
+
+    @classmethod
+    def delete_expired(cls):
+        """Delete all expired reservations immediately"""
+        try:
+            ist = pytz.timezone('Asia/Kolkata')
+            current_time = datetime.now(ist)
+            
+            # Direct SQL delete for efficiency
+            result = db.session.execute(
+                db.delete(cls)
+                .where(cls.end_time < current_time)
+            )
+            db.session.commit()
+            return result.rowcount
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Failed to delete expired: {str(e)}")
+            return 0
 
     @property
     def status(self):
-        """Determine reservation status based on current time"""
-        now = datetime.now(timezone.utc)
+        """Determine status based on current IST"""
+        ist = pytz.timezone('Asia/Kolkata')
+        now = datetime.now(ist)
+        
         if self.end_time < now:
             return 'expired'
         elif self.start_time <= now <= self.end_time:
@@ -171,9 +206,8 @@ class Reservation(db.Model):
         return 'upcoming'
 
     def can_cancel(self, user):
-        """Check if the given user can cancel this reservation"""
+        """Check if user can cancel this reservation"""
         return self.user_id == user.id and self.status == 'upcoming'
 
     def __repr__(self):
         return f'<Reservation {self.id} for device {self.device_id}>'
-

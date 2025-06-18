@@ -24,6 +24,7 @@
     <nav>
         <a href="{{ url_for('device.index') }}">Devices</a>
         <a href="{{ url_for('user.index') }}">Users</a>
+
     </nav>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
