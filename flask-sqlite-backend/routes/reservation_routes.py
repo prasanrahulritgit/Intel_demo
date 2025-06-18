@@ -67,6 +67,46 @@ def dashboard():
         current_user=current_user
     )
 
+@reservation_bp.route('/reservations')
+@login_required
+def view_reservations():
+    """Endpoint specifically for viewing reservations (for both admins and regular users)"""
+    # Delete expired reservations
+    expired_count = Reservation.delete_expired()
+    if expired_count > 0:
+        current_app.logger.info(f"Deleted {expired_count} expired reservations")
+
+    # Get current time in IST
+    ist = pytz.timezone('Asia/Kolkata')
+    now_ist = datetime.now(ist)
+    
+    # Get all devices and reservations
+    devices = Device.query.all()
+    
+    # Get non-expired reservations
+    all_reservations = Reservation.query.filter(
+        Reservation.end_time >= now_ist.replace(tzinfo=None)
+    ).order_by(Reservation.start_time).all()
+    
+    # Separate reservations
+    user_reservations = [
+        r for r in all_reservations 
+        if r.user_id == current_user.id
+    ]
+    other_reservations = [
+        r for r in all_reservations 
+        if r.user_id != current_user.id
+    ]
+    
+    return render_template(
+        'admin_reservation.html',
+        devices=devices,
+        user_reservations=user_reservations,
+        other_reservations=other_reservations,
+        now=now_ist,
+        current_user=current_user,
+        is_admin=(current_user.role == 'admin')
+    )
 
 '''@reservation_bp.route('/reserve', methods=['POST'])
 @login_required
@@ -167,8 +207,8 @@ def make_reservation():
             limits = {
                 'pc': 1,
                 'rutomatrix': 1,
-                'pulseview': 3,
-                'ct': 3
+                'pulseview': 1,
+                'ct': 1
             }
             
             # Determine which limit applies

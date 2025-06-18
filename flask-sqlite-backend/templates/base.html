@@ -21,11 +21,15 @@
     </style>
 </head>
 <body>
-    <nav>
-        <a href="{{ url_for('device.index') }}">Devices</a>
-        <a href="{{ url_for('user.index') }}">Users</a>
-
-    </nav>
+<nav>
+    <a href="{{ url_for('device.index') }}">Devices</a>
+    {% if current_user.is_authenticated %}
+        {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('user.index') }}">Users</a>
+        {% endif %}
+        <a href="{{ url_for('reservation.view_reservations') }}">Reservations</a>
+    {% endif %}
+</nav>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
