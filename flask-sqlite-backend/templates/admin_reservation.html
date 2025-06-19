@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">Device Reservation</h2>
@@ -25,6 +26,8 @@
         </div>
         <div class="card-body">
             <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                 <div class="form-row">
                     <div class="form-group col-md-6">
                         <label for="device">Device</label>
@@ -107,6 +110,7 @@
                                     <td>
                                         {% if res.start_time > now %}
                                             <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
                                                     <i class="fas fa-times"></i>
                                                 </button>
@@ -133,42 +137,50 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive scrollable-table" style="max-height: 400px;">
-                        <table class="table table-hover mb-0">
-                            <thead class="thead-light sticky-top">
-                                <tr>
-                                    <th>Device</th>
-                                    <th>IP Type</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Booked By</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for res in other_reservations|sort(attribute='start_time') %}
-                                <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}">
-                                    <td>{{ res.device_id }}</td>
-                                    <td>{{ res.ip_type }}</td>
-                                    <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>{{ res.user.user_name }}</td>
-                                    <td>
-                                        {% if res.end_time < now %}
-                                            <span class="badge badge-secondary">Expired</span>
-                                        {% elif res.start_time <= now <= res.end_time %}
-                                            <span class="badge badge-success">Active</span>
-                                        {% else %}
-                                            <span class="badge badge-info">Upcoming</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No active reservations found</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+<table class="table table-hover mb-0">
+    <thead class="thead-light sticky-top">
+        <tr>
+            <th>ID</th>
+            <th>Device</th>
+            <th>IP Type</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+            <th>Admin Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for res in other_reservations|sort(attribute='start_time') %}
+        <tr class="{% if res.status == 'expired' %}table-secondary{% elif res.status == 'active' %}table-success{% endif %}">
+            <td>{{ res.id }}</td>
+            <td>{{ res.device_id }}</td>
+            <td>{{ res.ip_type }}</td>
+            <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
+            <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
+            <td>
+                <span class="badge 
+                    {% if res.status == 'expired' %}badge-secondary
+                    {% elif res.status == 'active' %}badge-success
+                    {% else %}badge-info{% endif %}">
+                    {{ res.status|title }}
+                </span>
+            </td>
+            <td>
+                {% if current_user.role == 'admin' %}
+                <form action="{{ url_for('reservation.admin_cancel_reservation', reservation_id=res.id) }}" 
+                      method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-outline-danger admin-cancel-btn" 
+                            title="Force Cancel">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
                     </div>
                 </div>
             </div>
@@ -205,6 +217,22 @@
         padding: 4px 8px;
     }
 
+.admin-cancel-btn {
+    color: #dc3545;
+    border-color: #dc3545;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+}
+
+.admin-cancel-btn:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+
+.table td, .table th {
+    padding: 0.5rem;
+}
         body { font-family: Arial, sans-serif; margin: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -249,15 +277,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return true;
     });
     
-    // Set minimum end time when start time changes
+    
     startTime.addEventListener('change', function() {
         endTime.min = startTime.value;
     });
     
-    // Cancellation confirmation
-    document.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            if (!confirm('Are you sure you want to cancel this reservation?')) {
+
+    document.querySelectorAll('.admin-cancel-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            const deviceId = this.closest('tr').querySelector('td:nth-child(2)').textContent;
+            if (!confirm(`Force cancel reservation for device ${deviceId}?`)) {
                 e.preventDefault();
             }
         });

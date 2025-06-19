@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>{% block title %}Device Manager{% endblock %}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }

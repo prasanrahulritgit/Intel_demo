@@ -6,6 +6,7 @@ from models import db, User
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
+from flask_wtf.csrf import CSRFProtect
 
 from scheduler import init_scheduler
 
@@ -24,6 +25,7 @@ def create_app():
 
     login_manager.init_app(app)
     init_scheduler(app)
+    csrf = CSRFProtect(app)
 
     # Register blueprints
     from routes.auth_routes import auth_bp

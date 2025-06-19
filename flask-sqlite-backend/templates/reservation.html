@@ -1,4 +1,4 @@
-
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">Device Reservation</h2>
@@ -22,16 +22,19 @@
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">Make New Reservation</h5>
         </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="device">Device</label>
-                        <select class="form-control select2-style" id="device" name="device_id" required>
-                            {% for device in devices %}
-                            <option value="{{ device.device_id }}">{{ device.device_id }}</option>
-                            {% endfor %}
-                        </select>
+    <div class="card-body">
+    <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="device">Device</label>
+                <select class="form-control select2-style" id="device" name="device_id" required>
+                    {% for device in devices %}
+                    <option value="{{ device.device_id }}">{{ device.device_id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
                     </div>
                     <div class="form-group col-md-6">
                         <label for="ip_type">IP Type</label>
@@ -102,16 +105,18 @@
                                         {% else %}
                                             <span class="badge badge-info">Upcoming</span>
                                         {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if res.start_time > now %}
-                                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="cancel-form d-inline">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </td>
+                                        <td>
+                                 {% if res.start_time <= now <= res.end_time or res.start_time > now %}
+                         <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" 
+                             method="POST" class="d-inline">
+                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" 
+                              title="Cancel Reservation">
+                             <i class="fas fa-times"></i>
+                             </button>
+                            </form>
+                            {% endif %}
+                            </td>
                                 </tr>
                                 {% else %}
                                 <tr>
@@ -253,13 +258,13 @@ document.addEventListener('DOMContentLoaded', function() {
         endTime.min = startTime.value;
     });
     
-    // Cancellation confirmation
-    document.querySelectorAll('.cancel-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            if (!confirm('Are you sure you want to cancel this reservation?')) {
-                e.preventDefault();
-            }
-        });
+document.querySelectorAll('.cancel-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        const deviceId = this.closest('tr').querySelector('td:first-child').textContent;
+        if (!confirm(`Cancel reservation for device ${deviceId}? This will free it for others.`)) {
+            e.preventDefault();
+        }
     });
+  });
 });
 </script>

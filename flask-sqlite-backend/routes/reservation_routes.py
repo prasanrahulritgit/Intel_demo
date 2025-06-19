@@ -108,69 +108,6 @@ def view_reservations():
         is_admin=(current_user.role == 'admin')
     )
 
-'''@reservation_bp.route('/reserve', methods=['POST'])
-@login_required
-def make_reservation():
-    try:
-        # 1. Force delete expired FIRST
-        expired_count = Reservation.delete_expired()
-        if expired_count > 0:
-            current_app.logger.info(f"Deleted {expired_count} expired reservations")
-
-        # 2. Process new reservation
-        ist = pytz.timezone('Asia/Kolkata')
-        current_time = datetime.now(ist)
-        
-        device_id = request.form['device_id']
-        ip_type = request.form['ip_type']
-        
-        # Convert to IST
-        start_time = ist.localize(datetime.strptime(
-            request.form['start_time'], '%Y-%m-%dT%H:%M'
-        ))
-        end_time = ist.localize(datetime.strptime(
-            request.form['end_time'], '%Y-%m-%dT%H:%M'
-        ))
-
-        # Validation
-        if end_time <= start_time:
-            flash('End time must be after start time', 'danger')
-        elif start_time < current_time:
-            flash('Start time cannot be in the past', 'danger')
-        else:
-            # Set limits
-            max_users = 1 if ip_type in ['pc', 'rutomatrix'] else 3
-            
-            # Check conflicts (excluding expired via end_time filter)
-            conflicts = Reservation.query.filter(
-                Reservation.device_id == device_id,
-                Reservation.ip_type == ip_type,
-                Reservation.end_time >= current_time,  
-                Reservation.start_time < end_time,
-                Reservation.end_time > start_time
-            ).count()
-
-            if conflicts >= max_users:
-                flash(f'Maximum {max_users} user(s) allowed for {ip_type}', 'danger')
-            else:
-                # Create reservation
-                reservation = Reservation(
-                    device_id=device_id,
-                    user_id=current_user.id,
-                    ip_type=ip_type,
-                    start_time=start_time,
-                    end_time=end_time
-                )
-                db.session.add(reservation)
-                db.session.commit()
-                flash('Reservation successful!', 'success')
-
-    except Exception as e:
-        db.session.rollback()
-        flash('Reservation failed', 'danger')
-        current_app.logger.error(f"Error: {str(e)}")
-    
-    return redirect(url_for('reservation.dashboard'))'''
 
 
 @reservation_bp.route('/reserve', methods=['POST', 'GET'])
@@ -253,7 +190,7 @@ def make_reservation():
     
     return redirect(url_for('reservation.dashboard'))
 
-@reservation_bp.route('/cancel/<int:reservation_id>', methods=['POST'])
+'''@reservation_bp.route('/cancel/<int:reservation_id>', methods=['POST'])
 @login_required
 def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
@@ -270,5 +207,59 @@ def cancel_reservation(reservation_id):
         db.session.rollback()
         flash('Failed to cancel reservation', 'danger')
         current_app.logger.error(f"Cancellation error: {str(e)}")
+    
+    return redirect(url_for('reservation.dashboard'))'''
+
+@reservation_bp.route('/cancel/<int:reservation_id>', methods=['POST'])
+@login_required
+def cancel_reservation(reservation_id):
+    reservation = Reservation.query.get_or_404(reservation_id)
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
+    
+    # Allow cancellation if: user owns it AND (active or upcoming)
+    if not (reservation.user_id == current_user.id and 
+            reservation.start_time <= now <= reservation.end_time):
+        flash('You can only cancel your own active or upcoming reservations', 'danger')
+        return redirect(url_for('reservation.dashboard'))
+    
+    try:
+        db.session.delete(reservation)
+        db.session.commit()
+        flash('Reservation cancelled successfully', 'success')
+        current_app.logger.info(
+            f"User {current_user.id} canceled reservation {reservation_id} "
+            f"(Device: {reservation.device_id})"
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to cancel reservation', 'danger')
+        current_app.logger.error(f"Cancellation error: {str(e)}")
+    
+    return redirect(url_for('reservation.dashboard'))
+
+
+@reservation_bp.route('/admin/cancel/<int:reservation_id>', methods=['POST'])
+@login_required
+def admin_cancel_reservation(reservation_id):
+    if current_user.role != 'admin':
+        flash('Admin privileges required', 'danger')
+        return redirect(url_for('reservation.dashboard'))
+    
+    reservation = Reservation.query.get_or_404(reservation_id)
+    device_id = reservation.device_id  # Get device ID before deletion
+    
+    try:
+        db.session.delete(reservation)
+        db.session.commit()
+        flash(f'Successfully canceled reservation for device {device_id}', 'success')
+        current_app.logger.info(
+            f"Admin {current_user.id} canceled reservation {reservation_id} "
+            f"(Device: {device_id})"
+        )
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Failed to cancel reservation: {str(e)}', 'danger')
+        current_app.logger.error(f"Admin cancellation error: {str(e)}")
     
     return redirect(url_for('reservation.dashboard'))
