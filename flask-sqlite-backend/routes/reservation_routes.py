@@ -3,7 +3,7 @@ from flask_login import current_user, login_required
 import pytz
 from sqlalchemy import delete, exists
 from models import DeviceUsage, Reservation, Device, db
-from datetime import datetime
+from datetime import datetime, timezone
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -312,13 +312,10 @@ def cancel_reservation(reservation_id):
 @login_required
 def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
-    ist = pytz.timezone('Asia/Kolkata')
-    now = datetime.now(ist)
     
-    # Allow cancellation if: user owns it AND reservation is upcoming or active
-    if not (reservation.user_id == current_user.id and 
-            now <= reservation.end_time):  # Changed condition to check if current time is before end time
-        flash('You can only cancel your own upcoming or active reservations', 'danger')
+    # Only check ownership (no time-based restrictions)
+    if reservation.user_id != current_user.id:
+        flash('You can only cancel your own reservations', 'danger')
         return redirect(url_for('reservation.dashboard'))
     
     try:
