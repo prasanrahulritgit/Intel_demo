@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Usage History</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <style>
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 0.35em 0.65em;
+        }
+        .active-badge {
+            background-color: #0d6efd;
+        }
+        .completed-badge {
+            background-color: #198754;
+        }
+        .terminated-badge {
+            background-color: #dc3545;
+        }
+        .duration-cell {
+            font-family: monospace;
+        }
+        .filter-container {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .modal-body {
+            padding: 2rem;
+        }
+
+    #detailsModal .modal-body {
+    padding: 20px;
+  }
+    #detailsModal .badge {
+    font-size: 0.9em;
+    padding: 5px 10px;
+  }
+    #detailsModal h5 {
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Device Usage History</h1>
+            <div>
+                <a href="{{ url_for('reservation.view_reservations') }}" class="btn btn-outline-primary me-2">
+                    View Reservations
+                </a>
+                {% if current_user.role == 'admin' %}
+                <button class="btn btn-danger" id="clearHistoryBtn">
+                    Clear Old Records
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="filter-container">
+            <form id="filterForm" class="row g-3">
+                <div class="col-md-3">
+                    <label for="deviceFilter" class="form-label">Device</label>
+                    <select id="deviceFilter" class="form-select">
+                        <option value="">All Devices</option>
+                        {% for device in devices %}
+                        <option value="{{ device.device_id }}">{{ device.device_name }} ({{ device.device_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="userFilter" class="form-label">User</label>
+                    <select id="userFilter" class="form-select">
+                        <option value="">All Users</option>
+                        {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.name }} ({{ user.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="statusFilter" class="form-label">Status</label>
+                    <select id="statusFilter" class="form-select">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="terminated">Terminated</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="dateFrom" class="form-label">From Date</label>
+                    <input type="date" class="form-control" id="dateFrom">
+                </div>
+                <div class="col-md-2">
+                    <label for="dateTo" class="form-label">To Date</label>
+                    <input type="date" class="form-control" id="dateTo">
+                </div>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="historyTable" class="table table-striped table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>Device</th>
+                                <th>User</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>IP Type</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in history_records %}
+                            <tr>
+                                <td>
+                                    <strong>{{ record.device.device_name }}</strong>
+                                    <div class="text-muted small">{{ record.device_id }}</div>
+                                </td>
+                                <td>
+                                    {{ record.user.name }}
+                                    <div class="text-muted small">{{ record.user.email }}</div>
+                                </td>
+                                <td>{{ record.actual_start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    {% if record.actual_end_time %}
+                                        {{ record.actual_end_time.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        <em>In Progress</em>
+                                    {% endif %}
+                                </td>
+                                <td class="duration-cell">
+                                    {% if record.duration %}
+                                        {{ (record.duration // 3600) }}h {{ ((record.duration % 3600) // 60) }}m
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record.status == 'active' %}
+                                        <span class="badge active-badge status-badge">Active</span>
+                                    {% elif record.status == 'completed' %}
+                                        <span class="badge completed-badge status-badge">Completed</span>
+                                    {% else %}
+                                        <span class="badge terminated-badge status-badge">Terminated</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ record.ip_type }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info view-details" 
+                                            data-record-id="{{ record.id }}">
+                                        Details
+                                    </button>
+                                    {% if current_user.role == 'admin' %}
+                                    <button class="btn btn-sm btn-outline-danger delete-record" 
+                                            data-record-id="{{ record.id }}">
+                                        Delete
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Usage Record Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="recordDetails">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading record details...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        const table = $('#historyTable').DataTable({
+            order: [[2, 'desc']],
+            pageLength: 25,
+            responsive: true
+        });
+
+        // Filter handlers
+        $('#deviceFilter, #userFilter, #statusFilter').on('change', function() {
+            table.column($(this).parent().index()).search(this.value).draw();
+        });
+
+        // Date range filtering
+        $.fn.dataTable.ext.search.push(
+            function(settings, data, dataIndex) {
+                const dateFrom = $('#dateFrom').val();
+                const dateTo = $('#dateTo').val();
+                const rowDate = new Date(data[2]).setHours(0,0,0,0);
+                
+                if (!dateFrom && !dateTo) return true;
+                if (dateFrom && !dateTo) return rowDate >= new Date(dateFrom).setHours(0,0,0,0);
+                if (!dateFrom && dateTo) return rowDate <= new Date(dateTo).setHours(0,0,0,0);
+                if (dateFrom && dateTo) return rowDate >= new Date(dateFrom).setHours(0,0,0,0) && 
+                                           rowDate <= new Date(dateTo).setHours(0,0,0,0);
+                return true;
+            }
+        );
+
+        $('#dateFrom, #dateTo').on('change', function() {
+            table.draw();
+        });
+
+        // CSRF setup
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type)) {
+                    const token = $('meta[name="csrf-token"]').attr('content');
+                    if (token) xhr.setRequestHeader("X-CSRFToken", token);
+                }
+            }
+        });
+
+$('.view-details').click(function() {
+    const recordId = $(this).data('record-id');
+    const modal = $('#detailsModal');
+    
+    // Show loading state
+    $('#recordDetails').html(`
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-2">Loading record details...</p>
+        </div>
+    `);
+    
+    modal.modal('show');
+
+    $.ajax({
+        url: `/history/get-usage-record/${recordId}`,
+        method: 'GET',
+        success: function(response) {
+            if (response.error) {
+                $('#recordDetails').html(`
+                    <div class="alert alert-danger">
+                        <h5>Error</h5>
+                        <p>${response.error}</p>
+                    </div>
+                `);
+                return;
+            }
+
+            const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleString() : 'N/A';
+            const formatDuration = (seconds) => {
+                if (!seconds) return 'N/A';
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                return `${hours}h ${minutes}m`;
+            };
+            
+            const getStatusBadge = (status) => {
+                const statusClass = {
+                    'active': 'bg-primary',
+                    'completed': 'bg-success',
+                    'terminated': 'bg-danger',
+                    'reserved': 'bg-info'
+                }[status.toLowerCase()] || 'bg-secondary';
+                return `<span class="badge ${statusClass}">${status}</span>`;
+            };
+
+            const detailsHtml = `
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Device Information</h5>
+                        <p><strong>Device ID:</strong> ${response.device_id}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">User Information</h5>
+                        <p><strong>User ID:</strong> ${response.user_info.user_id}</p>
+                        <p><strong>Username:</strong> ${response.user_info.user_name}</p>
+                        <p><strong>User IP:</strong> ${response.user_info.user_ip || 'N/A'}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Timing Information</h5>
+                        <p><strong>Start Time:</strong> ${formatDate(response.timing.start_time)}</p>
+                        <p><strong>End Time:</strong> ${formatDate(response.timing.end_time)}</p>
+                        <p><strong>Duration:</strong> ${formatDuration(response.timing.duration)}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2">Network Information</h5>
+                        <p><strong>IP Address:</strong> ${response.network_info.ip_address || 'N/A'}</p>
+                        <p><strong>IP Type:</strong> ${response.network_info.ip_type || 'N/A'}</p>
+                        <p><strong>Status:</strong> ${getStatusBadge(response.status_info.status)}</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-12">
+                        <h5 class="border-bottom pb-2">Reservation Details</h5>
+                        <p><strong>Reservation ID:</strong> ${response.reservation_info.reservation_id || 'N/A'}</p>
+                        <p><strong>Reservation IP Type:</strong> ${response.reservation_info.ip_type || 'N/A'}</p>
+                    </div>
+                </div>
+                
+                ${response.status_info.termination_reason ? `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-warning">
+                            <strong>Termination Reason:</strong> ${response.status_info.termination_reason}
+                        </div>
+                    </div>
+                </div>` : ''}
+            `;
+            
+            $('#recordDetails').html(detailsHtml);
+        },
+        error: function(xhr) {
+            let errorMsg = 'Failed to load details';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            $('#recordDetails').html(`
+                <div class="alert alert-danger">
+                    <h5>Error</h5>
+                    <p>${errorMsg}</p>
+                    <p class="small">Status: ${xhr.status}</p>
+                </div>
+            `);
+        }
+    });
+});
+
+        // Status badge helper
+        function getStatusClass(status) {
+            const classes = {
+                'active': 'bg-primary',
+                'completed': 'bg-success',
+                'terminated': 'bg-danger',
+                'reserved': 'bg-info'
+            };
+            return classes[status.toLowerCase()] || 'bg-secondary';
+        }
+
+        // Duration formatting helper
+        function formatDuration(seconds) {
+            if (!seconds) return 'N/A';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+
+        // Delete record handler
+        $(document).on('click', '.delete-record', function() {
+            const recordId = $(this).data('record-id');
+            const $row = $(this).closest('tr');
+            
+            if (!confirm('Are you sure you want to delete this record?')) return;
+            
+            $.ajax({
+                url: `/history/delete-usage-record/${recordId}`,
+                method: 'DELETE',
+                success: function(response) {
+                    $row.fadeOut(400, function() { $(this).remove(); });
+                    alert(response.message || 'Record deleted successfully');
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.error || 'Failed to delete record';
+                    alert(errorMsg);
+                }
+            });
+        });
+
+        // Clear history handler
+        $('#clearHistoryBtn').click(function() {
+            if (!confirm('Delete all records older than 6 months?')) return;
+            
+            $.ajax({
+                url: '/history/clear-old',
+                method: 'POST',
+                success: function(response) {
+                    alert(response.message || 'Old records cleared');
+                    location.reload();
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.error || 'Failed to clear records';
+                    alert(errorMsg);
+                }
+            });
+        });
+
+        // Start usage handler
+        $(document).on('click', '.start-usage', function() {
+            const reservationId = $(this).data('reservation-id');
+            
+            $.ajax({
+                url: `/history/start-usage/${reservationId}`,
+                method: 'POST',
+                success: function(response) {
+                    alert(response.message || 'Usage started successfully');
+                    location.reload();
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.error || 'Failed to start usage';
+                    alert(errorMsg);
+                }
+            });
+        });
+
+        // End usage handler
+        $(document).on('click', '.end-usage', function() {
+            const reservationId = $(this).data('reservation-id');
+            
+            $.ajax({
+                url: `/history/end-usage/${reservationId}`,
+                method: 'POST',
+                success: function(response) {
+                    alert(response.message || 'Usage ended successfully');
+                    location.reload();
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON?.error || 'Failed to end usage';
+                    alert(errorMsg);
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
+{% endblock %}

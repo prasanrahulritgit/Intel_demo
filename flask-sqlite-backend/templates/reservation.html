@@ -1,270 +1,715 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Device Reservation</h2>
-        <p class="mb-0 welcome-text">Welcome, <span class="font-weight-bold">{{ current_user.username }}</span>!</p>
-    </div>
-    
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Make New Reservation</h5>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Reservation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .filter-container {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .modal-body {
+            padding: 2rem;
+        }
+        .action-buttons .btn {
+            margin-right: 0.3rem;
+            margin-bottom: 0.3rem;
+        }
+        .reservation-form .form-group {
+            margin-bottom: 1rem;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 0.35em 0.65em;
+        }
+        .badge-active {
+            background-color: #28a745;
+        }
+        .badge-upcoming {
+            background-color: #17a2b8;
+        }
+        .badge-expired {
+            background-color: #6c757d;
+        }
+        .scrollable-table {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .input-icon-group {
+            position: relative;
+        }
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+            z-index: 5;
+        }
+        .form-control-lg {
+            padding-left: 45px;
+        }
+        .reservation-card {
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            margin-bottom: 1.5rem;
+        }
+        .reservation-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 1rem 1.5rem;
+        }
+        .btn-reserve {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            padding: 0.75rem 2rem;
+            font-weight: 500;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+        }
+        .btn-reserve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .table-secondary {
+            background-color: rgba(108, 117, 125, 0.05);
+        }
+        .table-success {
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        .welcome-text {
+            font-size: 1.1rem;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Device Reservation</h1>
+            <p class="mb-0 welcome-text">Welcome, <span class="fw-bold">{{ current_user.username }}</span>!</p>
         </div>
-    <div class="card-body">
-    <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        
-        <div class="form-row">
-            <div class="form-group col-md-6">
-                <label for="device">Device</label>
-                <select class="form-control select2-style" id="device" name="device_id" required>
-                    {% for device in devices %}
-                    <option value="{{ device.device_id }}">{{ device.device_id }}</option>
-                    {% endfor %}
-                </select>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="card reservation-card mb-4">
+            <div class="card-header reservation-header">
+                <h5 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Create New Reservation</h5>
             </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('reservation.make_reservation') }}" id="reservationForm" class="reservation-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="row g-3">
+                        <!-- Device Selection -->
+                        <div class="col-md-6">
+                            <label for="device" class="form-label">Select Device</label>
+                            <div class="input-icon-group">
+                                <i class="fas fa-desktop input-icon"></i>
+                                <select class="form-control form-control-lg" id="device" name="device_id" required>
+                                    {% for device in devices %}
+                                    <option value="{{ device.device_id }}">{{ device.device_id }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- IP Type Selection -->
+                        <div class="col-md-6">
+                            <label for="ip_type" class="form-label">Connection Type</label>
+                            <div class="input-icon-group">
+                                <i class="fas fa-network-wired input-icon"></i>
+                                <select class="form-control form-control-lg" id="ip_type" name="ip_type" required>
+                                    <option value="pc">PC</option>
+                                    <option value="rutomatrix">Rutomatrix</option>
+                                    <option value="pulse1">Pulse1</option>
+                                    <option value="pulse2">Pulse2</option>
+                                    <option value="pulse3">Pulse3</option>
+                                    <option value="ct1">CT1</option>
+                                    <option value="ct2">CT2</option>
+                                    <option value="ct3">CT3</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Start Time -->
+                        <div class="col-md-6">
+                            <label for="start_time" class="form-label">Start Time</label>
+                            <div class="input-icon-group">
+                                <i class="fas fa-clock input-icon"></i>
+                                <input type="datetime-local" class="form-control form-control-lg" id="start_time" 
+                                       name="start_time" required min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                            </div>
+                        </div>
+                        
+                        <!-- End Time -->
+                        <div class="col-md-6">
+                            <label for="end_time" class="form-label">End Time</label>
+                            <div class="input-icon-group">
+                                <i class="fas fa-clock input-icon"></i>
+                                <input type="datetime-local" class="form-control form-control-lg" id="end_time" 
+                                       name="end_time" required min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group col-md-6">
-                        <label for="ip_type">IP Type</label>
-                        <select class="form-control select2-style" id="ip_type" name="ip_type" required>
-                            <option value="pc">PC</option>
-                            <option value="rutomatrix">Rutomatrix</option>
-                            <option value="pulse1">Pulse1</option>
-                            <option value="pulse2">Pulse2</option>
-                            <option value="pulse3">Pulse3</option>
-                            <option value="ct1">CT1</option>
-                            <option value="ct2">CT2</option>
-                            <option value="ct3">CT3</option>
-                        </select>
+                    
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-reserve">
+                            <i class="fas fa-calendar-check me-2"></i>Book Reservation
+                        </button>
                     </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group col-md-6">
-                        <label for="start_time">Start Time</label>
-                        <input type="datetime-local" class="form-control" id="start_time" name="start_time" required
-                               min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
-                    </div>
-                    <div class="form-group col-md-6">
-                        <label for="end_time">End Time</label>
-                        <input type="datetime-local" class="form-control" id="end_time" name="end_time" required
-                               min="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary btn-block mt-2">
-                    <i class="fas fa-calendar-plus mr-2"></i>Make Reservation
-                </button>
-            </form>
+                </form>
+            </div>
         </div>
-    </div>
-    
-    <div class="row">
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Your Reservations</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive scrollable-table" style="max-height: 400px;">
-                        <table class="table table-hover mb-0">
-                            <thead class="thead-light sticky-top">
-                                <tr>
-                                    <th>Device</th>
-                                    <th>IP Type</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for res in user_reservations|sort(attribute='start_time') %}
-                                <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}">
-                                    <td>{{ res.device_id }}</td>
-                                    <td>{{ res.ip_type }}</td>
-                                    <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>
-                                        {% if res.end_time < now %}
-                                            <span class="badge badge-secondary">Expired</span>
-                                        {% elif res.start_time <= now <= res.end_time %}
-                                            <span class="badge badge-success">Active</span>
-                                        {% else %}
-                                            <span class="badge badge-info">Upcoming</span>
-                                        {% endif %}
+
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Your Reservations</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <select id="entriesPerPage" class="form-select form-select-sm">
+                                    <option value="5">5 entries</option>
+                                    <option value="10" selected>10 entries</option>
+                                    <option value="25">25 entries</option>
+                                    <option value="50">50 entries</option>
+                                </select>
+                            </div>
+                            <div class="input-group input-group-sm" style="width: 200px;">
+                                <input type="text" id="reservationSearch" class="form-control" placeholder="Search...">
+                                <button class="btn btn-outline-light" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="scrollable-table">
+                            <table id="reservationsTable" class="table table-hover mb-0">
+                                <thead class="thead-light sticky-top">
+                                    <tr>
+                                        <th class="sortable" data-sort="device">
+                                            Device <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="ipType">
+                                            IP Type <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="startTime">
+                                            Start <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="endTime">
+                                            End <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="status">
+                                            Status <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reservationsBody">
+                                    {% for res in user_reservations %}
+                                    <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}"
+                                        data-device="{{ res.device_id|lower }}"
+                                        data-ip-type="{{ res.ip_type|lower }}"
+                                        data-start-time="{{ res.start_time.timestamp() }}"
+                                        data-end-time="{{ res.end_time.timestamp() }}"
+                                        data-status="{% if res.end_time < now %}expired{% elif res.start_time <= now <= res.end_time %}active{% else %}upcoming{% endif %}">
+                                        <td>{{ res.device_id }}</td>
+                                        <td>{{ res.ip_type }}</td>
+                                        <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
+                                        <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
                                         <td>
-                                 {% if res.start_time <= now <= res.end_time or res.start_time > now %}
-                         <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" 
-                             method="POST" class="d-inline">
-                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" 
-                              title="Cancel Reservation">
-                             <i class="fas fa-times"></i>
-                             </button>
-                            </form>
-                            {% endif %}
-                            </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No reservations found</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                            {% if res.end_time < now %}
+                                                <span class="badge status-badge badge-expired">Expired</span>
+                                            {% elif res.start_time <= now <= res.end_time %}
+                                                <span class="badge status-badge badge-active">Active</span>
+                                            {% else %}
+                                                <span class="badge status-badge badge-upcoming">Upcoming</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if res.start_time > now %}
+                                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
+                                                    <i class="fas fa-times"></i> Cancel
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">
+                                            <i class="far fa-calendar-times fa-2x mb-2"></i><br>
+                                            No reservations found
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">
+                                Showing <span id="showingFrom">1</span> to <span id="showingTo">10</span> of <span id="totalEntries">{{ user_reservations|length }}</span> entries
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item disabled" id="prevPage">
+                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                                    </li>
+                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                    <li class="page-item" id="nextPage">
+                                        <a class="page-link" href="#">Next</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="col-lg-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0">All Active Reservations</h5>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive scrollable-table" style="max-height: 400px;">
-                        <table class="table table-hover mb-0">
-                            <thead class="thead-light sticky-top">
-                                <tr>
-                                    <th>Device</th>
-                                    <th>IP Type</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Booked By</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for res in other_reservations|sort(attribute='start_time') %}
-                                <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}">
-                                    <td>{{ res.device_id }}</td>
-                                    <td>{{ res.ip_type }}</td>
-                                    <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
-                                    <td>{{ res.user.user_name }}</td>
-                                    <td>
-                                        {% if res.end_time < now %}
-                                            <span class="badge badge-secondary">Expired</span>
-                                        {% elif res.start_time <= now <= res.end_time %}
-                                            <span class="badge badge-success">Active</span>
-                                        {% else %}
-                                            <span class="badge badge-info">Upcoming</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">No active reservations found</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-users me-2"></i>All Active Reservations</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <select id="activeEntriesPerPage" class="form-select form-select-sm">
+                                    <option value="5">5 entries</option>
+                                    <option value="10" selected>10 entries</option>
+                                    <option value="25">25 entries</option>
+                                    <option value="50">50 entries</option>
+                                </select>
+                            </div>
+                            <div class="input-group input-group-sm" style="width: 200px;">
+                                <input type="text" id="activeReservationSearch" class="form-control" placeholder="Search...">
+                                <button class="btn btn-outline-dark" type="button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="scrollable-table">
+                            <table id="activeReservationsTable" class="table table-hover mb-0">
+                                <thead class="thead-light sticky-top">
+                                    <tr>
+                                        <th class="sortable" data-sort="id">
+                                            ID <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="device">
+                                            Device <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="ipType">
+                                            IP Type <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="startTime">
+                                            Start <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="endTime">
+                                            End <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+                                        <th class="sortable" data-sort="status">
+                                            Status <i class="fas fa-sort float-end mt-1"></i>
+                                        </th>
+    
+                                    </tr>
+                                </thead>
+                                <tbody id="activeReservationsBody">
+                                    {% for res in other_reservations|sort(attribute='start_time') %}
+                                    <tr class="{% if res.status == 'expired' %}table-secondary{% elif res.status == 'active' %}table-success{% endif %}"
+                                        data-id="{{ res.id }}"
+                                        data-device="{{ res.device_id|lower }}"
+                                        data-ip-type="{{ res.ip_type|lower }}"
+                                        data-start-time="{{ res.start_time.timestamp() }}"
+                                        data-end-time="{{ res.end_time.timestamp() }}"
+                                        data-status="{{ res.status }}"
+                                        data-user="{{ res.user.username|lower if res.user else '' }}">
+                                        <td>{{ res.id }}</td>
+                                        <td>{{ res.device_id }}</td>
+                                        <td>{{ res.ip_type }}</td>
+                                        <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
+                                        <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
+                                        <td>
+                                            <span class="badge status-badge 
+                                                {% if res.status == 'expired' %}badge-expired
+                                                {% elif res.status == 'active' %}badge-active
+                                                {% else %}badge-upcoming{% endif %}">
+                                                {{ res.status|title }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if current_user.role == 'admin' %}
+
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">
+                                            <i class="far fa-calendar-times fa-2x mb-2"></i><br>
+                                            No active reservations found
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <div class="text-muted small">
+                                Showing <span id="activeShowingFrom">1</span> to <span id="activeShowingTo">10</span> of <span id="activeTotalEntries">{{ other_reservations|length }}</span> entries
+                            </div>
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item disabled" id="activePrevPage">
+                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                                    </li>
+                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                    <li class="page-item" id="activeNextPage">
+                                        <a class="page-link" href="#">Next</a>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<style>
-    .scrollable-table {
-        overflow-y: auto;
-    }
-    .sticky-top {
-        position: sticky;
-        top: 0;
-        background-color: #f8f9fa;
-        z-index: 10;
-    }
-    .welcome-text {
-        font-size: 1.1rem;
-        color: #495057;
-    }
-    .select2-style {
-        background-color: #f8f9fa;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        padding: 8px 12px;
-    }
-    .table-hover tbody tr:hover {
-        background-color: rgba(0, 123, 255, 0.05);
-    }
-    .badge {
-        font-size: 0.85em;
-        font-weight: 500;
-        padding: 4px 8px;
-    }
-
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .flash-message { padding: 10px; margin: 10px 0; border-radius: 4px; }
-        .success { background-color: #dff0d8; color: #3c763d; }
-        .error { background-color: #f2dede; color: #a94442; }
-        form { margin: 10px 0; }
-        input[type="text"] { padding: 6px; margin-right: 5px; }
-        button, a.button { padding: 6px 12px; cursor: pointer; }
-        a { color: #337ab7; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .actions { white-space: nowrap; }
-        nav { background: #eee; padding: 10px; margin-bottom: 20px; }
-        nav a { margin-right: 15px; }
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Form validation
-    const form = document.getElementById('reservationForm');
-    const startTime = document.getElementById('start_time');
-    const endTime = document.getElementById('end_time');
-    
-    form.addEventListener('submit', function(e) {
-        const start = new Date(startTime.value);
-        const end = new Date(endTime.value);
-        const now = new Date();
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize variables
+        const table = document.getElementById('reservationsTable');
+        const tbody = document.getElementById('reservationsBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const searchInput = document.getElementById('reservationSearch');
+        const entriesSelect = document.getElementById('entriesPerPage');
+        const showingFrom = document.getElementById('showingFrom');
+        const showingTo = document.getElementById('showingTo');
+        const totalEntries = document.getElementById('totalEntries');
+        const prevPage = document.getElementById('prevPage');
+        const nextPage = document.getElementById('nextPage');
         
-        if (end <= start) {
-            alert('End time must be after start time');
-            e.preventDefault();
-            return false;
+        let currentPage = 1;
+        let entriesPerPage = parseInt(entriesSelect.value);
+        let filteredRows = rows;
+        let currentSort = { column: 'startTime', direction: 'asc' };
+        
+        // Initialize pagination
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredRows.length / entriesPerPage);
+            const startIdx = (currentPage - 1) * entriesPerPage;
+            const endIdx = startIdx + entriesPerPage;
+            
+            // Update showing X-Y of Z
+            showingFrom.textContent = filteredRows.length > 0 ? startIdx + 1 : 0;
+            showingTo.textContent = Math.min(endIdx, filteredRows.length);
+            totalEntries.textContent = filteredRows.length;
+            
+            // Hide all rows first
+            rows.forEach(row => row.style.display = 'none');
+            
+            // Show only rows for current page
+            filteredRows.slice(startIdx, endIdx).forEach(row => row.style.display = '');
+            
+            // Update pagination buttons
+            prevPage.classList.toggle('disabled', currentPage === 1);
+            nextPage.classList.toggle('disabled', currentPage >= totalPages);
         }
         
-        if (start < now) {
-            alert('Start time cannot be in the past');
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            filteredRows = rows.filter(row => {
+                const text = row.textContent.toLowerCase();
+                return text.includes(searchTerm);
+            });
+            currentPage = 1;
+            updatePagination();
+        });
+        
+        // Entries per page change
+        entriesSelect.addEventListener('change', function() {
+            entriesPerPage = parseInt(this.value);
+            currentPage = 1;
+            updatePagination();
+        });
+        
+        // Pagination navigation
+        prevPage.addEventListener('click', function(e) {
             e.preventDefault();
-            return false;
+            if (currentPage > 1) {
+                currentPage--;
+                updatePagination();
+            }
+        });
+        
+        nextPage.addEventListener('click', function(e) {
+            e.preventDefault();
+            const totalPages = Math.ceil(filteredRows.length / entriesPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                updatePagination();
+            }
+        });
+        
+        // Sorting functionality
+        const sortableHeaders = table.querySelectorAll('.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                const isCurrentColumn = currentSort.column === column;
+                const newDirection = isCurrentColumn ? (currentSort.direction === 'asc' ? 'desc' : 'asc') : 'asc';
+                
+                currentSort = { column, direction: newDirection };
+                
+                // Update UI
+                sortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+                this.classList.add(`sorted-${newDirection}`);
+                
+                // Sort the rows
+                sortRows();
+                updatePagination();
+            });
+        });
+        
+        function sortRows() {
+            filteredRows.sort((a, b) => {
+                const aValue = getSortValue(a, currentSort.column);
+                const bValue = getSortValue(b, currentSort.column);
+                
+                if (aValue < bValue) return currentSort.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return currentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // Reattach sorted rows to DOM
+            filteredRows.forEach(row => tbody.appendChild(row));
         }
         
-        return true;
-    });
-    
-    // Set minimum end time when start time changes
-    startTime.addEventListener('change', function() {
-        endTime.min = startTime.value;
-    });
-    
-document.querySelectorAll('.cancel-btn').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        const deviceId = this.closest('tr').querySelector('td:first-child').textContent;
-        if (!confirm(`Cancel reservation for device ${deviceId}? This will free it for others.`)) {
-            e.preventDefault();
+        function getSortValue(row, column) {
+            switch(column) {
+                case 'device': return row.dataset.device;
+                case 'ipType': return row.dataset.ipType;
+                case 'startTime': return parseFloat(row.dataset.startTime);
+                case 'endTime': return parseFloat(row.dataset.endTime);
+                case 'status': return row.dataset.status;
+                default: return '';
+            }
         }
+        
+        // Initialize
+        const defaultHeader = table.querySelector(`[data-sort="${currentSort.column}"]`);
+        defaultHeader.classList.add(`sorted-${currentSort.direction}`);
+        sortRows();
+        updatePagination();
+        
+        // Form validation
+        const form = document.getElementById('reservationForm');
+        if (form) {
+            const startTime = document.getElementById('start_time');
+            const endTime = document.getElementById('end_time');
+            
+            form.addEventListener('submit', function(e) {
+                const start = new Date(startTime.value);
+                const end = new Date(endTime.value);
+                const now = new Date();
+                
+                if (end <= start) {
+                    alert('End time must be after start time');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                if (start < now) {
+                    alert('Start time cannot be in the past');
+                    e.preventDefault();
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            if (startTime) {
+                startTime.addEventListener('change', function() {
+                    if (endTime) {
+                        endTime.min = startTime.value;
+                    }
+                });
+            }
+        }
+
+        // Cancel button confirmation
+        document.querySelectorAll('.cancel-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                if (!confirm('Are you sure you want to cancel this reservation?')) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        // Initialize Active Reservations Table
+        const activeTable = document.getElementById('activeReservationsTable');
+        const activeTbody = document.getElementById('activeReservationsBody');
+        const activeRows = Array.from(activeTbody.querySelectorAll('tr'));
+        const activeSearchInput = document.getElementById('activeReservationSearch');
+        const activeEntriesSelect = document.getElementById('activeEntriesPerPage');
+        const activeShowingFrom = document.getElementById('activeShowingFrom');
+        const activeShowingTo = document.getElementById('activeShowingTo');
+        const activeTotalEntries = document.getElementById('activeTotalEntries');
+        const activePrevPage = document.getElementById('activePrevPage');
+        const activeNextPage = document.getElementById('activeNextPage');
+        
+        let activeCurrentPage = 1;
+        let activeEntriesPerPage = parseInt(activeEntriesSelect.value);
+        let activeFilteredRows = activeRows;
+        let activeCurrentSort = { column: 'startTime', direction: 'desc' };
+        
+        // Initialize pagination
+        function updateActivePagination() {
+            const totalPages = Math.ceil(activeFilteredRows.length / activeEntriesPerPage);
+            const startIdx = (activeCurrentPage - 1) * activeEntriesPerPage;
+            const endIdx = startIdx + activeEntriesPerPage;
+            
+            // Update showing X-Y of Z
+            activeShowingFrom.textContent = activeFilteredRows.length > 0 ? startIdx + 1 : 0;
+            activeShowingTo.textContent = Math.min(endIdx, activeFilteredRows.length);
+            activeTotalEntries.textContent = activeFilteredRows.length;
+            
+            // Hide all rows first
+            activeRows.forEach(row => row.style.display = 'none');
+            
+            // Show only rows for current page
+            activeFilteredRows.slice(startIdx, endIdx).forEach(row => row.style.display = '');
+            
+            // Update pagination buttons
+            activePrevPage.classList.toggle('disabled', activeCurrentPage === 1);
+            activeNextPage.classList.toggle('disabled', activeCurrentPage >= totalPages);
+        }
+        
+        // Search functionality
+        activeSearchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            activeFilteredRows = activeRows.filter(row => {
+                const text = row.textContent.toLowerCase();
+                const user = row.dataset.user || '';
+                return text.includes(searchTerm) || user.includes(searchTerm);
+            });
+            activeCurrentPage = 1;
+            updateActivePagination();
+        });
+        
+        // Entries per page change
+        activeEntriesSelect.addEventListener('change', function() {
+            activeEntriesPerPage = parseInt(this.value);
+            activeCurrentPage = 1;
+            updateActivePagination();
+        });
+        
+        // Pagination navigation
+        activePrevPage.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (activeCurrentPage > 1) {
+                activeCurrentPage--;
+                updateActivePagination();
+            }
+        });
+        
+        activeNextPage.addEventListener('click', function(e) {
+            e.preventDefault();
+            const totalPages = Math.ceil(activeFilteredRows.length / activeEntriesPerPage);
+            if (activeCurrentPage < totalPages) {
+                activeCurrentPage++;
+                updateActivePagination();
+            }
+        });
+        
+        // Sorting functionality
+        const activeSortableHeaders = activeTable.querySelectorAll('.sortable');
+        activeSortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                const isCurrentColumn = activeCurrentSort.column === column;
+                const newDirection = isCurrentColumn ? 
+                    (activeCurrentSort.direction === 'asc' ? 'desc' : 'asc') : 'asc';
+                
+                activeCurrentSort = { column, direction: newDirection };
+                
+                // Update UI
+                activeSortableHeaders.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+                this.classList.add(`sorted-${newDirection}`);
+                
+                // Sort the rows
+                sortActiveRows();
+                updateActivePagination();
+            });
+        });
+        
+        function sortActiveRows() {
+            activeFilteredRows.sort((a, b) => {
+                const aValue = getActiveSortValue(a, activeCurrentSort.column);
+                const bValue = getActiveSortValue(b, activeCurrentSort.column);
+                
+                if (aValue < bValue) return activeCurrentSort.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return activeCurrentSort.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            // Reattach sorted rows to DOM
+            activeFilteredRows.forEach(row => activeTbody.appendChild(row));
+        }
+        
+        function getActiveSortValue(row, column) {
+            switch(column) {
+                case 'id': return parseInt(row.dataset.id);
+                case 'device': return row.dataset.device;
+                case 'ipType': return row.dataset.ipType;
+                case 'startTime': return parseFloat(row.dataset.startTime);
+                case 'endTime': return parseFloat(row.dataset.endTime);
+                case 'status': return row.dataset.status;
+                default: return '';
+            }
+        }
+        
+        // Initialize
+        const activeDefaultHeader = activeTable.querySelector(`[data-sort="${activeCurrentSort.column}"]`);
+        activeDefaultHeader.classList.add(`sorted-${activeCurrentSort.direction}`);
+        sortActiveRows();
+        updateActivePagination();
+        
+        // Admin cancel button confirmation
+        document.querySelectorAll('.admin-cancel-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                if (!confirm('Are you sure you want to force cancel this reservation?')) {
+                    e.preventDefault();
+                }
+            });
+        });
     });
-  });
-});
-</script>
+    </script>
+</body>
+</html>

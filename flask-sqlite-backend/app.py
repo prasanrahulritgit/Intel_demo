@@ -1,8 +1,8 @@
 
 from flask import Flask
 from flask_login import LoginManager
-from flask_migrate import Migrate
-from models import db, User
+from flask_migrate import Migrate, history
+from models import db, User, DeviceUsage
 from datetime import datetime
 from werkzeug.security import generate_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -32,11 +32,14 @@ def create_app():
     from routes.device_routes import device_bp
     from routes.user_routes import user_bp
     from routes.reservation_routes import reservation_bp
+    from routes.history_routes import history_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(device_bp)
     app.register_blueprint(user_bp)
     app.register_blueprint(reservation_bp)
+    app.register_blueprint(history_bp)
+    
 
     @login_manager.user_loader
     def load_user(user_id):
