@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 <!DOCTYPE html>
 <html lang="en">
@@ -42,6 +41,7 @@
     </style>
 </head>
 <body>
+    
     <div class="container-fluid py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1 class="h3 mb-0">User Management</h1>
@@ -98,21 +98,20 @@
                                     <span class="badge role-badge badge-{{ 'admin' if user.role == 'admin' else 'user' }}">
                                         {{ user.role }}
                                     </span>
-                                </td>
-                                <td class="action-buttons">
-                                    {% if current_user.role == 'admin' or current_user.id == user.id %}
-                                    <button class="btn btn-sm btn-outline-secondary edit-user" 
-                                            data-user-id="{{ user.id }}">
-                                        Edit
-                                    </button>
-                                    {% endif %}
-                                    {% if current_user.role == 'admin' %}
-                                    <button class="btn btn-sm btn-outline-danger delete-user" 
-                                            data-user-id="{{ user.id }}">
-                                        Delete
-                                    </button>
-                                    {% endif %}
-                                </td>
+                        <td class="action-buttons">
+                       {% if current_user.role == 'admin' or current_user.id == user.id %}
+                    <button class="btn btn-sm btn-outline-secondary edit-user" 
+                       data-user-id="{{ user.id }}">
+                      Edit
+                     </button>
+                         {% endif %}
+                     {% if current_user.role == 'admin' and user.role != 'admin' %}
+                   <button class="btn btn-sm btn-outline-danger delete-user" 
+                         data-user-id="{{ user.id }}">
+                          Delete
+                         </button>
+                            {% endif %}
+                           </td>
                             </tr>
                             {% endfor %}
                         </tbody>
