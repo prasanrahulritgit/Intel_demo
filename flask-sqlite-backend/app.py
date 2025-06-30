@@ -1,32 +1,31 @@
-
 from flask import Flask
 from flask_login import LoginManager
-from flask_migrate import Migrate, history
-from models import db, User, DeviceUsage
+from flask_migrate import Migrate
+from models import db, User
 from datetime import datetime
 from werkzeug.security import generate_password_hash
-from apscheduler.schedulers.background import BackgroundScheduler
-from flask_wtf.csrf import CSRFProtect
-
-from scheduler import init_scheduler
+from flask_wtf.csrf import CSRFProtect, generate_csrf
+from flask_cors import CORS  # Add this import
 
 def create_app():
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///device_list.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.secret_key = 'your-secret-key-here'
-
+    
+    # Configure CORS
+    CORS(app, resources={
+        r"/api/*": {"origins": "*"},
+        r"/get-csrf": {"origins": "*"},
+        r"/login": {"origins": "*"}
+    }, supports_credentials=True)
+    
     # Initialize extensions
     db.init_app(app)
     login_manager = LoginManager(app)
     login_manager.login_view = 'auth.login'
     migrate = Migrate(app, db)
-    
-
-    login_manager.init_app(app)
-    init_scheduler(app)
     csrf = CSRFProtect(app)
-
     # Register blueprints
     from routes.auth_routes import auth_bp
     from routes.device_routes import device_bp

@@ -10,95 +10,229 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .filter-container {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            margin-bottom: 1rem;
-        }
-        .card-body {
-            padding: 1.5rem;
-        }
-        .modal-body {
-            padding: 2rem;
-        }
-        .action-buttons .btn {
-            margin-right: 0.3rem;
-            margin-bottom: 0.3rem;
-        }
-        .reservation-form .form-group {
-            margin-bottom: 1rem;
-        }
-        .status-badge {
-            font-size: 0.8rem;
-            padding: 0.35em 0.65em;
-        }
-        .badge-active {
-            background-color: #28a745;
-        }
-        .badge-upcoming {
-            background-color: #17a2b8;
-        }
-        .badge-expired {
-            background-color: #6c757d;
-        }
-        .scrollable-table {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        .input-icon-group {
-            position: relative;
-        }
-        .input-icon {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6c757d;
-            z-index: 5;
-        }
-        .form-control-lg {
-            padding-left: 45px;
-        }
-        .reservation-card {
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-            margin-bottom: 1.5rem;
-        }
-        .reservation-header {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            padding: 1rem 1.5rem;
-        }
-        .btn-reserve {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border: 1px solid #dee2e6;
-            padding: 0.75rem 2rem;
-            font-weight: 500;
-            border-radius: 0.5rem;
-            transition: all 0.3s;
-        }
-        .btn-reserve:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        .table-secondary {
-            background-color: rgba(108, 117, 125, 0.05);
-        }
-        .table-success {
-            background-color: rgba(40, 167, 69, 0.05);
-        }
-        .welcome-text {
-            font-size: 1.1rem;
-            color: #495057;
-        }
-    </style>
+    :root {
+        --primary-bg: #121212;
+        --secondary-bg: #1e1e1e;
+        --accent-orange: #ff6a00;
+        --accent-blue: #1281d6;
+        --text-primary: #1281d6;
+        --text-secondary: #cccccc;
+        --border-color: #333333;
+        --table-header-bg: #ff6a00;
+        --table-row-odd: #1a1a1a;
+        --table-row-even: #222222;
+    }
+
+    body {
+        background-color: var(--primary-bg);
+        color: var(--text-primary);
+    }
+
+    .card-body {
+        color: #cccccc;
+    }
+
+    .card {
+        background-color: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+
+    .card-header {
+        background-color: var(--table-header-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .table {
+        color: var(--text-primary);
+    }
+
+    .table thead th {
+        background-color: var(--table-header-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .table tbody tr {
+        background-color: var(--table-row-odd);
+    }
+
+    .table tbody tr:nth-of-type(even) {
+        background-color: var(--table-row-even);
+    }
+
+    .btn-primary {
+        background-color: var(--accent-orange);
+        border-color: var(--accent-orange);
+        color: #000;
+    }
+
+    .btn-outline-secondary {
+        color: var(--accent-blue);
+        border-color: var(--accent-blue);
+    }
+
+    .btn-outline-danger {
+        color: var(--accent-orange);
+        border-color: var(--accent-orange);
+    }
+
+    .filter-container {
+        background-color: var(--secondary-bg);
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border: 1px solid var(--border-color);
+    }
+
+    .form-control, .form-select {
+        background-color: #000;
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+
+    .action-buttons .btn {
+        margin-right: 5px;
+        margin-bottom: 5px;
+    }
+
+    /* Status badges */
+    .status-badge {
+        font-size: 0.8rem;
+        padding: 0.35em 0.65em;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    .badge-expired {
+        background-color: #6c757d;
+        color: white;
+    }
+
+    .badge-active {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .badge-upcoming {
+        background-color: var(--accent-blue);
+        color: white;
+    }
+
+    /* Scrollable table */
+    .scrollable-table {
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    /* Input with icons */
+    .input-icon-group {
+        position: relative;
+    }
+
+    .input-icon {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent-orange);
+        z-index: 5;
+    }
+
+    .form-control-lg {
+        padding-left: 45px;
+    }
+
+    .form-label{
+        color:#1281d6
+    }
+
+    /* Reservation specific styles */
+    .reservation-card {
+        border-radius: 10px;
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+        margin-bottom: 1.5rem;
+        background-color: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+    }
+
+    .reservation-header {
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem 1.5rem;
+    }
+
+    .btn-reserve {
+    background-color: #ff6a00;
+    transition: background-color 0.3s ease; /* Add smooth transition */
+    }
+
+    .btn-reserve:hover {
+        background-color: #1281d6 !important; /* Use !important to override any Bootstrap styles */
+        border-color: #1281d6 !important; /* Also change border color to match */
+        color: white !important; /* Change text color to white for better contrast */
+    }
+    
+    /* Table status highlighting */
+    .table-secondary {
+        background-color: rgba(108, 117, 125, 0.1) !important;
+    }
+
+    .table-success {
+        background-color: rgba(40, 167, 69, 0.1) !important;
+    }
+
+    /* Sortable headers */
+    .sortable {
+        cursor: pointer;
+    }
+
+    .sortable:hover {
+        color: var(--accent-orange);
+    }
+
+    .sorted-asc::after, .sorted-desc::after {
+        margin-left: 5px;
+    }
+
+    .sorted-asc::after {
+        content: "↑";
+        color: var(--accent-orange);
+    }
+
+    .sorted-desc::after {
+        content: "↓";
+        color: var(--accent-orange);
+    }
+
+    /* Admin cancel button */
+    .admin-cancel-btn {
+        transition: all 0.3s;
+    }
+
+    .admin-cancel-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    /* Welcome text */
+    .welcome-text {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+    }
+
+    .welcome-text span {
+        color: var(--accent-orange);
+        font-weight: 600;
+    }
+
+    .mb-4{
+        width: 100%;
+    }
+</style>
 </head>
 <body>
     <div class="container-fluid py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Device Reservation</h1>
-            <p class="mb-0 welcome-text">Welcome, <span class="fw-bold">{{ current_user.username }}</span>!</p>
+            <h1 class="h3 mb-0">Admin Device Reservation</h1>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -121,7 +255,9 @@
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
                     <div class="row g-3">
+                        
                         <!-- Device Selection -->
+                        <!--
                         <div class="col-md-6">
                             <label for="device" class="form-label">Select Device</label>
                             <div class="input-icon-group">
@@ -133,8 +269,10 @@
                                 </select>
                             </div>
                         </div>
+                        -->
                         
                         <!-- IP Type Selection -->
+                        <!--
                         <div class="col-md-6">
                             <label for="ip_type" class="form-label">Connection Type</label>
                             <div class="input-icon-group">
@@ -151,6 +289,7 @@
                                 </select>
                             </div>
                         </div>
+                        -->
                         
                         <!-- Start Time -->
                         <div class="col-md-6">
@@ -185,7 +324,8 @@
         <div class="row">
             <div class="col-lg-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center"
+             style="background-color: #1e1e1e; color: #1281d6;">
                         <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Your Reservations</h5>
                         <div class="d-flex align-items-center">
                             <div class="me-3">
@@ -287,8 +427,8 @@
                     </div>
                 </div>
             </div>
-            
           <div class="col-lg-6 mb-4">
+    <!--
     <div class="card shadow-sm h-100">
         <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-users me-2"></i>All Active Reservations</h5>
@@ -401,6 +541,7 @@
             </nav>
         </div>
     </div>
+    -->
 </div>
             </div>
         </div>

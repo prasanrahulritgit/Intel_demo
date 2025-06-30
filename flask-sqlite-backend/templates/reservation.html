@@ -9,87 +9,151 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .filter-container {
-            background-color: #f8f9fa;
-            padding: 1rem;
-            border-radius: 0.25rem;
-            margin-bottom: 1rem;
+        :root {
+            --primary-bg: #121212;
+            --secondary-bg: #1e1e1e;
+            --accent-orange: #ff6a00;
+            --accent-blue: #1281d6;
+            --text-primary: #1281d6;
+            --text-secondary: #cccccc;
+            --border-color: #333333;
+            --table-header-bg: #2a2a2a;
+            --table-row-odd: #1a1a1a;
+            --table-row-even: #222222;
         }
-        .card-body {
-            padding: 1.5rem;
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
         }
-        .modal-body {
-            padding: 2rem;
-        }
-        .action-buttons .btn {
-            margin-right: 0.3rem;
-            margin-bottom: 0.3rem;
-        }
-        .reservation-form .form-group {
-            margin-bottom: 1rem;
-        }
+
         .status-badge {
             font-size: 0.8rem;
             padding: 0.35em 0.65em;
+            font-weight: 500;
         }
+
         .badge-active {
-            background-color: #28a745;
+            background-color: var(--accent-orange);
+            color: #000;
         }
+        
         .badge-upcoming {
-            background-color: #17a2b8;
+            background-color: var(--accent-blue);
+            color: #fff;
         }
+        
         .badge-expired {
             background-color: #6c757d;
+            color: #fff;
         }
+
         .scrollable-table {
             max-height: 500px;
             overflow-y: auto;
         }
+        
         .input-icon-group {
             position: relative;
         }
+        
         .input-icon {
             position: absolute;
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: #6c757d;
+            color: var(--accent-orange);
             z-index: 5;
         }
+        
         .form-control-lg {
             padding-left: 45px;
         }
+        
         .reservation-card {
-            border-radius: 0.5rem;
-            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 10px;
+            box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
             margin-bottom: 1.5rem;
+            background-color: var(--secondary-bg);
+            border: 1px solid var(--border-color);
         }
+        
         .reservation-header {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            background: linear-gradient(135deg, #1a1a1a 0%, #101010 100%);
+            border-bottom: 1px solid var(--border-color);
             padding: 1rem 1.5rem;
         }
+        
         .btn-reserve {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border: 1px solid #dee2e6;
+            background: linear-gradient(135deg, var(--accent-orange) 0%, #e05d00 100%);
+            border: none;
             padding: 0.75rem 2rem;
             font-weight: 500;
-            border-radius: 0.5rem;
+            border-radius: 8px;
             transition: all 0.3s;
+            color: #000;
         }
+        
         .btn-reserve:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 15px rgba(255, 106, 0, 0.4);
         }
+        
         .table-secondary {
-            background-color: rgba(108, 117, 125, 0.05);
+            background-color: rgba(108, 117, 125, 0.1);
         }
+        
         .table-success {
-            background-color: rgba(40, 167, 69, 0.05);
+            background-color: rgba(40, 167, 69, 0.1);
         }
+        
         .welcome-text {
             font-size: 1.1rem;
-            color: #495057;
+            color: var(--text-secondary);
+        }
+        
+        .welcome-text span {
+            color: var(--accent-orange);
+            font-weight: 600;
+        }
+
+        .card-body{
+            color: #cccccc;
+        }
+        
+        .card-header {
+            color: var(--accent-orange);
+        }
+        
+        .sortable {
+            cursor: pointer;
+        }
+        
+        .sortable:hover {
+            color: var(--accent-orange);
+        }
+        
+        .sorted-asc::after, .sorted-desc::after {
+            margin-left: 5px;
+        }
+        
+        .sorted-asc::after {
+            content: "↑";
+            color: var(--accent-orange);
+        }
+        
+        .sorted-desc::after {
+            content: "↓";
+            color: var(--accent-orange);
+        }
+        
+        .admin-cancel-btn {
+            transition: all 0.3s;
+        }
+        
+        .admin-cancel-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
         }
     </style>
 </head>
@@ -247,14 +311,14 @@
                                                 <span class="badge status-badge badge-upcoming">Upcoming</span>
                                             {% endif %}
                                         </td>
-                                  <td>
-                     <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="d-inline">
-                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                   <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
-                      <i class="fas fa-times"></i> Cancel
-                    </button>
-                 </form>
-                   </td>
+                                        <td>
+                                            <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger cancel-btn" title="Cancel">
+                                                    <i class="fas fa-times"></i> Cancel
+                                                </button>
+                                            </form>
+                                        </td>
                                     </tr>
                                     {% else %}
                                     <tr>
@@ -331,7 +395,7 @@
                                         <th class="sortable" data-sort="status">
                                             Status <i class="fas fa-sort float-end mt-1"></i>
                                         </th>
-    
+                                        <th>Admin Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="activeReservationsBody">
@@ -359,7 +423,15 @@
                                         </td>
                                         <td>
                                             {% if current_user.role == 'admin' %}
-
+                                            <form action="{{ url_for('reservation.admin_cancel_reservation', reservation_id=res.id) }}" 
+                                                method="POST" class="d-inline"
+                                            onsubmit="return confirm('Are you sure you want to force cancel this reservation?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger admin-cancel-btn" 
+                                                title="Force Cancel (Admin Only)">
+                                            <i class="fas fa-ban"></i> Force Cancel
+                                            </button>
+                                            </form>
                                             {% endif %}
                                         </td>
                                     </tr>
@@ -561,7 +633,6 @@
             }
         }
 
-        // Cancel button confirmation
         document.querySelectorAll('.cancel-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 if (!confirm('Are you sure you want to cancel this reservation?')) {

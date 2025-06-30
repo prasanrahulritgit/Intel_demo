@@ -99,8 +99,19 @@ def view_reservations():
         if r.user_id != current_user.id
     ]
     
-    return render_template(
+    if(current_user.role == 'admin') :
+        return render_template(
         'admin_reservation.html',
+        devices=devices,
+        user_reservations=user_reservations,
+        other_reservations=other_reservations,
+        now=now_ist,
+        current_user=current_user,
+        is_admin=(current_user.role == 'admin')
+    ) 
+    else :
+        return render_template(
+        'reservation.html',
         devices=devices,
         user_reservations=user_reservations,
         other_reservations=other_reservations,

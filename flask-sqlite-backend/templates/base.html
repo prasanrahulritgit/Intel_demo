@@ -3,78 +3,116 @@
 <head>
     <title>{% block title %}Device Manager{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <!-- Load Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Load Bootstrap if not already loaded -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-        .flash-message { padding: 10px; margin: 10px 0; border-radius: 4px; }
-        .success { background-color: #dff0d8; color: #3c763d; }
-        .error { background-color: #f2dede; color: #a94442; }
-        form { margin: 10px 0; }
-        input[type="text"] { padding: 6px; margin-right: 5px; }
-        button, a.button { padding: 6px 12px; cursor: pointer; }
-        a { color: #337ab7; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .actions { white-space: nowrap; }
+        :root {
+            --primary-bg: #121212;
+            --secondary-bg: #1e1e1e;
+            --accent-orange: #ff6a00;
+            --accent-blue: #1281d6;
+            --text-primary: #1281d6;
+            --text-secondary: #cccccc;
+            --border-color: #333333;
+        }
+        
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
 
-  /* Improved Navigation Styling */
-.navbar-nav {
-  display: flex;
-  align-items: center;
-  gap: 12px; /* Uniform gap between all items */
-}
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .nav-link {
+        
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 16px;
+            margin: 0 5px;
+            transition: all 0.2s;
+        }
+        
+        .nav-link:hover {
+            color: var(--accent-orange);
+            border-color: var(--accent-orange);
+            box-shadow: 0 0 10px rgba(255, 106, 0, 0.5);
+        }
+        
+        .nav-link.active {
+            background-color: var(--accent-orange);
+            color: #000;
+            border-color: var(--accent-orange);
+        }
+        
+        .card {
+            background-color: var(--secondary-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+        
+        .btn-primary {
+            background-color: var(--accent-orange);
+            border-color: var(--accent-orange);
+            color: #000;
+        }
+        
+        .btn-outline-primary {
+            color: var(--accent-orange);
+            border-color: var(--accent-orange);
+        }
+        
+        .btn-outline-secondary {
+            color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        
+        .card:hover, .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(255, 106, 0, 0.7);
+        }
+        
+        .btn-outline-secondary:hover {
+            box-shadow: 0 0 15px rgba(18, 129, 214, 0.5);
+        }
+        
+        .alert {
+            border-radius: 6px;
+        }
+        
+        .flash-message {
+            padding: 10px 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+        
+        .flash-message.success {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .flash-message.error {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .flash-message.warning {
+            background-color: #ffc107;
+            color: black;
+        }
+        
+        .flash-message.info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        
+        .nav-link.orange {
+            color:white !important;
+        }
 
-.nav-item {
-  transition: all 0.3s ease;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-.nav-link:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.nav-link.active {
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* Responsive adjustments */
-@media (max-width: 992px) {
-  .navbar-nav {
-    gap: 8px;
-  }
-  .nav-link {
-    padding: 8px 12px;
-  }
-}
-
-@media (max-width: 768px) {
-  .navbar-nav {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    padding-top: 10px;
-  }
-  .nav-item {
-    width: 100%;
-  }
-  .nav-link {
-    border-radius: 6px !important;
-    border: 1px solid #dee2e6 !important;
-  }
-}
+        
     </style>
 </head>
 <body>
@@ -86,17 +124,18 @@
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         <!-- Devices Tab -->
-        <li class="nav-item mx-2">  <!-- Added mx-2 for horizontal spacing -->
-          <a class="nav-link py-2 px-3 rounded {% if request.endpoint == 'device.index' %}active bg-primary text-white{% else %}bg-light text-dark{% endif %}"
+        <li class="nav-item">
+          <a class="nav-link  orange {% if request.endpoint == 'device.index' %}active{% endif %}"
              href="{{ url_for('device.index') }}">
             <i class="fas fa-server me-2"></i> Devices
           </a>
         </li>
         
+        
         <!-- Users Tab (Admin Only) -->
         {% if current_user.is_authenticated and current_user.role == 'admin' %}
-        <li class="nav-item mx-2">  <!-- Added mx-2 -->
-          <a class="nav-link py-2 px-3 rounded {% if request.endpoint == 'user.index' %}active bg-primary text-white{% else %}bg-light text-dark{% endif %}"
+        <li class="nav-item">
+          <a class="nav-link orange {% if request.endpoint == 'user.index' %}active{% endif %}"
              href="{{ url_for('user.index') }}">
             <i class="fas fa-users me-2"></i> Users
           </a>
@@ -105,16 +144,16 @@
         
         <!-- Reservations Tab -->
         {% if current_user.is_authenticated %}
-        <li class="nav-item mx-2">  <!-- Added mx-2 -->
-          <a class="nav-link py-2 px-3 rounded {% if request.endpoint == 'reservation.view_reservations' %}active bg-primary text-white{% else %}bg-light text-dark{% endif %}"
+        <li class="nav-item">
+          <a class="nav-link orange {% if request.endpoint == 'reservation.view_reservations' %}active{% endif %}"
              href="{{ url_for('reservation.view_reservations') }}">
             <i class="fas fa-calendar-alt me-2"></i> Reservations
           </a>
         </li>
         
         <!-- History Tab -->
-        <li class="nav-item mx-2">  <!-- Added mx-2 -->
-          <a class="nav-link py-2 px-3 rounded {% if request.endpoint == 'history.index' %}active bg-primary text-white{% else %}bg-light text-dark{% endif %}"
+        <li class="nav-item">
+          <a class="nav-link orange {% if request.endpoint == 'history.index' %}active{% endif %}"
              href="{{ url_for('history.index') }}">
             <i class="fas fa-history me-2"></i> History
           </a>
@@ -135,7 +174,6 @@
     
     {% block content %}{% endblock %}
 
-    <!-- Load Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
