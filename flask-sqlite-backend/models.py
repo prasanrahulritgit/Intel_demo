@@ -30,6 +30,7 @@ class Device(db.Model):
     CT3_ip = db.Column(db.String(15))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
     
     def __init__(self, **kwargs):
         super(Device, self).__init__(**kwargs)

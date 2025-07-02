@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from models import Device, db
+from models import Device, Reservation, db
 from datetime import datetime
 
 device_bp = Blueprint('device', __name__)
@@ -12,6 +12,70 @@ def index():
         return redirect(url_for('reservation.dashboard'))
     devices = Device.query.all()
     return render_template('devices.html', devices=devices)
+
+
+
+
+@device_bp.route('/api/devices/status', methods=['GET'])
+@login_required
+def get_devices_with_status():
+    try:
+        # Get time range from query parameters
+        start_time = request.args.get('start_time')
+        end_time = request.args.get('end_time')
+        
+        # Parse dates if provided
+        if start_time:
+            start_time = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        if end_time:
+            end_time = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
+
+        devices = Device.query.all()
+        devices_list = []
+        
+        for device in devices:
+            is_booked = False
+            booking_info = {}
+            
+            if start_time and end_time:
+                # Check for overlapping reservations
+                overlapping = Reservation.query.filter(
+                    Reservation.device_id == device.device_id,
+                    Reservation.start_time < end_time,
+                    Reservation.end_time > start_time
+                ).first()
+                
+                if overlapping:
+                    is_booked = True
+                    booking_info = {
+                        'booked_by': overlapping.user.username if overlapping.user else 'System',
+                        'reservation_start': overlapping.start_time.isoformat(),
+                        'reservation_end': overlapping.end_time.isoformat()
+                    }
+            
+            device_data = {
+                'device_id': device.device_id,
+                'status': 'booked' if is_booked else 'available',
+                'drivers': {
+                    'PC': device.PC_IP,
+                    'Rutomatrix': device.Rutomatrix_ip,
+                    'Pulse1': device.Pulse1_Ip,
+                    'Pulse2': device.Pulse2_ip,
+                    'Pulse3': device.Pulse3_ip,
+                    'CT1': device.CT1_ip,
+                    'CT2': device.CT2_ip,
+                    'CT3': device.CT3_ip
+                },
+                **booking_info
+            }
+            
+            devices_list.append(device_data)
+        
+        return jsonify({'devices': devices_list})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 
 @device_bp.route('/api/devices', methods=['GET'])
 @login_required

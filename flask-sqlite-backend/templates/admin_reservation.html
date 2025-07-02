@@ -373,34 +373,80 @@
     }
 
     .device-card {
-        flex: 1;
-        background-color: #121212;
-        border: 1px solid #333;
-        border-radius: 3px;
-        padding: 10px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        transition: all 0.3s;
+        background-color: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
         position: relative;
-        overflow: hidden;
+        cursor: pointer;
     }
 
-    .device-card:hover {
-        border-color: #1281d6;
-        transform: translateY(-3px);
+
+    .device-details-container {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        max-width: 800px;
+        background-color: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        z-index: 1050;
+        box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    .device-details-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .close-details {
+        color: var(--accent-orange);
+        font-size: 24px;
+        cursor: pointer;
+    }
+
+    .device-details-content {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .device-detail-item {
+        margin-bottom: 10px;
+    }
+
+    .device-detail-label {
+        font-weight: bold;
+        color: var(--accent-orange);
+        margin-bottom: 5px;
+    }
+
+    .device-detail-value {
+        color: var(--text-secondary);
     }
 
     .device-card.selected {
-        border: 2px solid #ff6a00;
+        border: 2px solid var(--accent-orange);
         background-color: rgba(255, 106, 0, 0.1);
     }
 
     .device-card.booked {
         opacity: 0.6;
         cursor: not-allowed;
+        border-color: #dc3545 !important;
+    }
+
+    .device-card.booked:hover {
+        transform: none !important;
+        border-color: #dc3545 !important;
     }
 
     .device-card .device-front,
@@ -408,41 +454,19 @@
         transition: all 0.3s;
         backface-visibility: hidden;
     }
-
-    .device-card .device-front {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-    }
+    
+    .device-card:hover {
+    border: 2px solid var(--accent-orange) !important;
+    transform: none !important;
+}
 
     .device-card .device-back {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        padding: 10px;
-        background-color: #1a1a1a;
-        transform: rotateY(180deg);
-        display: none;
-    }
-
-    .device-card:hover .device-front {
-        transform: rotateY(180deg);
-        display: none;
-    }
-
-    .device-card:hover .device-back {
-        transform: rotateY(0deg);
-        display: block;
+        display: none !important; /* Completely hide the back side */
     }
 
     .status-indicator {
-        width: 10px;
-        height: 10px;
+        width: 12px;
+        height: 12px;
         border-radius: 50%;
         position: absolute;
         top: 5px;
@@ -451,10 +475,12 @@
 
     .status-indicator.available {
         background-color: #28a745;
+        box-shadow: 0 0 5px #28a745;
     }
 
     .status-indicator.booked {
         background-color: #dc3545;
+        box-shadow: 0 0 5px #dc3545;
     }
 
     .confirm-selection {
@@ -473,6 +499,335 @@
         padding: 5px 10px;
         font-size: 0.85rem;
     }
+    
+    .driver-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    .driver-grid::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 0;
+}
+
+.driver-grid {
+    display: grid;
+    grid-template-areas:
+        "driver driver driver driver"
+        ". driver driver .";
+    grid-template-columns: repeat(4, 1fr);
+    justify-items: center;
+    row-gap: 30px;
+    column-gap: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.driver-card:nth-child(1) { grid-area: 1 / 1; }
+.driver-card:nth-child(2) { grid-area: 1 / 2; }
+.driver-card:nth-child(3) { grid-area: 1 / 3; }
+.driver-card:nth-child(4) { grid-area: 1 / 4; }
+.driver-card:nth-child(5) { grid-area: 2 / 2; }
+.driver-card:nth-child(6) { grid-area: 2 / 3; }
+/* Add more nth-child rules if you have more than 6 drivers */
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .driver-grid {
+        grid-template-areas:
+            "driver driver"
+            "driver driver"
+            "driver driver";
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .driver-card:nth-child(n) {
+        grid-area: auto !important;
+    }
+    
+    .driver-card {
+        width: 150px;
+        min-height: 130px;
+    }
+}
+    
+    .driver-card {
+        width: 180px;
+        min-height: 150px;
+        background-color: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 5px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #1a1a1a;
+        border: 1px solid #333;
+        border-radius: 5px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 150px;
+        border: 1px solid #333;
+        transition: all 0.3s ease, transform 0.5s ease;
+    }
+    
+    .driver-card:hover {
+        border-color: #1281d6;
+        transform: translateY(-3px);
+    }
+    
+    .driver-card.selected {
+        border: 2px solid var(--accent-orange) !important;
+        background-color: rgba(255, 106, 0, 0.1);
+        box-shadow: 0 0 10px rgba(255, 106, 0, 0.2);
+        transform: scale(0.95);
+        opacity: 0.7;
+    }
+    
+    .driver-card:hover:not(.selected) {
+     border-color: #1281d6;
+     }
+    
+    .driver-icon {
+        font-size: 2rem;
+        margin-bottom: 10px;
+        color: #1281d6;
+    }
+    
+    .driver-name {
+        font-weight: 500;
+        margin-bottom: 5px;
+        font-size: 1.1rem;
+    }
+    
+    .driver-ip {
+        font-size: 0.85rem;
+        color: #cccccc;
+        word-break: break-all;
+        background-color: rgba(0,0,0,0.3);
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin-top: 5px;
+    }
+    
+    .driver-card.selected {
+        border: 2px solid #ff6a00;
+        background-color: rgba(255, 106, 0, 0.1);
+    }
+
+    .driver-card.selected .driver-ip {
+        background-color: rgba(255, 106, 0, 0.2);
+    }
+
+    .selected-drivers-container {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #1a1a1a;
+        border-radius: 5px;
+        border: 1px solid #333;
+    }
+    
+    .selected-drivers-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .selected-driver-badge {
+        background-color: rgba(255, 106, 0, 0.2);
+        border: 1px solid #ff6a00;
+        border-radius: 20px;
+        padding: 5px 10px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.3s ease;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .remove-driver-btn {
+        background: none;
+        border: none;
+        color: #ff6a00;
+        cursor: pointer;
+        padding: 0;
+        font-size: 0.8rem;
+    }
+    
+    .driver-selection-summary {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #1a1a1a;
+        border-radius: 5px;
+        border: 1px solid #333;
+    }
+
+    /* Devices Grid Layout */
+    .devices-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        width: 100%;
+    }
+
+    .device-row {
+        display: flex;
+        gap: 15px;
+        width: 100%;
+    }
+
+    .device-card {
+        flex: 1;
+        height: 120px;
+        perspective: 1000px;
+        transform-style: preserve-3d;
+        transition: all 0.3s;
+        border-radius: 8px;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .device-front, .device-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        padding: 15px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: rgb(17, 1, 1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .device-details {
+        font-size: 0.8rem;
+        text-align: left;
+        width: 100%;
+    }
+
+    /* Status Indicators */
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 8px;
+    }
+
+    .status-indicator.available {
+        background-color: #28a745;
+    }
+
+    .status-indicator.booked {
+        background-color: #dc3545;
+    }
+
+    .device-card.booked {
+        opacity: 0.7;
+    }
+
+
+    /* Booked Devices Grid */
+    .booked-devices-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .booked-device-card {
+        background: white;
+        border-radius: 5px;
+        padding: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .booked-device-card h5 {
+        margin-top: 0;
+        color: #dc3545;
+    }
+
+    /* Loading and Error States */
+    .loading-message, .error-message {
+        text-align: center;
+        padding: 30px;
+        font-size: 1.1rem;
+    }
+
+    .loading-message i {
+        margin-right: 10px;
+    }
+
+    .error-message {
+        color: #dc3545;
+    }
+
+    /* Overlay for details */
+    .details-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.7);
+        z-index: 1040;
+        display: none;
+    }
+
+    .backToDevicesBtn {
+        background-color: transparent;
+        border-color: #1281d6;
+        color: #1281d6;
+        transition: all 0.3s;
+    }
+
+    .backToDevicesBtn:hover {
+        background-color: rgba(18, 129, 214, 0.1);
+    }
+
+    @keyframes floatUp {
+        0% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(-100px) scale(0.8);
+            opacity: 0;
+        }
+    }
+
+    @keyframes fadeIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+
+
 </style>
 </head>
 <body>
@@ -562,164 +917,84 @@
                     <!-- Available Devices Tab -->
                     <div id="available-devices" class="tab-pane active">
                         <div class="server-rack-container">
-                            <!-- Server Rack A -->
-                            <div class="server-rack">
-                                <div class="rack-label">Rack A</div>
-                                <div class="rack-units">
-                                    <!-- 5 rows with 2 devices each -->
-                                    <div class="rack-row">
-                                        <div class="device-card" data-device="SRV-A-01">
-                                            <div class="device-front">
-                                                <h5>Device-001</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Gold</p>
-                                                <p>RAM: 256GB</p>
-                                                <p>Storage: 4x 1TB SSD</p>
-                                            </div>
-                                        </div>
-                                        <div class="device-card" data-device="SRV-A-02">
-                                            <div class="device-front">
-                                                <h5>device-002</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Gold</p>
-                                                <p>RAM: 256GB</p>
-                                                <p>Storage: 4x 1TB SSD</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="rack-row">
-                                        <div class="device-card" data-device="SRV-A-03">
-                                            <div class="device-front">
-                                                <h5>Device-003</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Silver</p>
-                                                <p>RAM: 128GB</p>
-                                                <p>Storage: 8x 500GB SSD</p>
-                                            </div>
-                                        </div>
-                                        <div class="device-card" data-device="SRV-A-04">
-                                            <div class="device-front">
-                                                <h5>Device-004</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Silver</p>
-                                                <p>RAM: 128GB</p>
-                                                <p>Storage: 8x 500GB SSD</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="rack-row">
-                                        <div class="device-card" data-device="SRV-A-05">
-                                            <div class="device-front">
-                                                <h5>Device-005</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x EPYC 7763</p>
-                                                <p>RAM: 512GB</p>
-                                                <p>Storage: 2x 2TB NVMe</p>
-                                            </div>
-                                        </div>
-                                        <div class="device-card" data-device="SRV-A-06">
-                                            <div class="device-front">
-                                                <h5>Device-006</h5>
-                                                <div class="status-indicator booked"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x EPYC 7763</p>
-                                                <p>RAM: 512GB</p>
-                                                <p>Storage: 2x 2TB NVMe</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="rack-row">
-                                        <div class="device-card" data-device="SRV-A-07">
-                                            <div class="device-front">
-                                                <h5>Device-007</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Platinum</p>
-                                                <p>RAM: 1TB</p>
-                                                <p>Storage: 12x 800GB SSD</p>
-                                            </div>
-                                        </div>
-                                        <div class="device-card" data-device="SRV-A-08">
-                                            <div class="device-front">
-                                                <h5>Device-008</h5>
-                                                <div class="status-indicator booked"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 2x Xeon Platinum</p>
-                                                <p>RAM: 1TB</p>
-                                                <p>Storage: 12x 800GB SSD</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="rack-row">
-                                        <div class="device-card" data-device="SRV-A-09">
-                                            <div class="device-front">
-                                                <h5>Device-009</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 4x Xeon Gold</p>
-                                                <p>RAM: 2TB</p>
-                                                <p>Storage: 24x 1.2TB SAS</p>
-                                            </div>
-                                        </div>
-                                        <div class="device-card" data-device="SRV-A-10">
-                                            <div class="device-front">
-                                                <h5>Device-010</h5>
-                                                <div class="status-indicator available"></div>
-                                            </div>
-                                            <div class="device-back">
-                                                <p>CPU: 4x Xeon Gold</p>
-                                                <p>RAM: 2TB</p>
-                                                <p>Storage: 24x 1.2TB SAS</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <!-- Loading message - will be replaced with dynamic content -->
+                            <div class="loading-message">
+                                <i class="fas fa-spinner fa-spin"></i> Loading devices...
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Booked Devices Tab -->
-                    <div id="booked-devices" class="tab-pane" style="display: none;">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Device ID</th>
-                                        <th>User</th>
-                                        <th>Start Time</th>
-                                        <th>End Time</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="bookedDevicesTable">
-                                    <!-- Booked devices will be populated here by JavaScript -->
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
                 
                 <div class="confirm-selection">
-                    <button id="confirmSelectionBtn" class="btn btn-reserve" disabled>
-                        <i class="fas fa-check me-2"></i>Confirm Selection
+                    <button id="confirmDeviceSelectionBtn" class="btn btn-reserve" disabled>
+                        <i class="fas fa-check me-2"></i>Confirm Device Selection
                     </button>
                 </div>
             </div>
         </div>
+                                
+        <!-- Booked Devices Tab -->
+        <div id="booked-devices" class="tab-pane" style="display: none;">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Device ID</th>
+                            <th>User</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookedDevicesTable">
+                        <!-- Booked devices will be populated here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+         <div id="driverSelectionOverlay" class="overlay">
+        <div class="overlay-content">
+            <div class="overlay-header">
+                <div>
+                    <button id="backToDevicesBtn" class="btn btn-sm btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-1"></i> Back
+                    </button>
+                    <h3>Select Drivers for Device: <span id="selectedDeviceName"></span></h3>
+                </div>
+                <span class="close-overlay">&times;</span>
+            </div>
+
+            <div class="driver-grid">
+                <!-- Driver cards will be populated here by JavaScript -->
+            </div>
+
+             <div class="driver-selection-summary">
+                <h5>Selected Drivers (<span id="selectedDriversCount">0</span>)</h5>
+                <div id="selectedDriversList" class="selected-drivers-list">
+                    <div class="text-muted">No drivers selected</div>
+                </div>
+            </div>
+            
+            <div class="confirm-selection">
+                <button id="confirmDriverSelectionBtn" class="btn btn-reserve">
+                    <i class="fas fa-check me-2"></i>Confirm Driver Selection
+                </button>
+            </div>
+        </div>
+    </div>
+
+        <!-- Device Details Container -->
+        <div id="deviceDetailsContainer" class="device-details-container">
+            <div class="device-details-header">
+                <h4 id="deviceDetailsTitle">Device Details</h4>
+                <span class="close-details">&times;</span>
+            </div>
+            <div class="device-details-content" id="deviceDetailsContent">
+                <!-- Device details will be populated here -->
+            </div>
+        </div>
+        <div id="detailsOverlay" class="details-overlay"></div>
 
         <div class="row">
             <div class="col-lg-6 mb-4">
@@ -883,22 +1158,98 @@
         const totalEntries = document.getElementById('totalEntries');
         const prevPage = document.getElementById('prevPage');
         const nextPage = document.getElementById('nextPage');
-        
+        let selectedDevice = null;
         let currentPage = 1;
         let entriesPerPage = parseInt(entriesSelect.value);
         let filteredRows = rows;
         let currentSort = { column: 'startTime', direction: 'asc' };
         
         // Overlay elements
-        const overlay = document.getElementById('deviceSelectionOverlay');
-        const closeOverlay = document.querySelector('.close-overlay');
+        const deviceOverlay = document.getElementById('deviceSelectionOverlay');
+        const driverOverlay = document.getElementById('driverSelectionOverlay');
+        const closeOverlayBtns = document.querySelectorAll('.close-overlay');
         const bookReservationBtn = document.getElementById('bookReservationBtn');
-        const confirmSelectionBtn = document.getElementById('confirmSelectionBtn');
+        const confirmDeviceSelectionBtn = document.getElementById('confirmDeviceSelectionBtn');
+        const confirmDriverSelectionBtn = document.getElementById('confirmDriverSelectionBtn');
         const deviceTabs = document.querySelectorAll('.device-tab');
-        let selectedDeviceId = null;
+        const driverGrid = document.querySelector('.driver-grid');
+        const selectedDeviceName = document.getElementById('selectedDeviceName');
+        const selectedDriversList = document.getElementById('selectedDriversList');
         
-        // Show overlay when Book Reservation button is clicked
-        bookReservationBtn.addEventListener('click', function() {
+        // Device details elements
+        const deviceDetailsContainer = document.getElementById('deviceDetailsContainer');
+        const deviceDetailsTitle = document.getElementById('deviceDetailsTitle');
+        const deviceDetailsContent = document.getElementById('deviceDetailsContent');
+        const detailsOverlay = document.getElementById('detailsOverlay');
+        const closeDetailsBtn = document.querySelector('.close-details');
+        
+        let selectedDeviceId = null;
+        let selectedDrivers = [];
+        let selectedStartTime = null;
+        let selectedEndTime = null;
+        
+        // Driver data
+        const drivers = [
+            //{ id: 1, name: 'PC', type: 'main' },
+            { id: 2, name: 'Rutomatrix', type: 'main' },
+            { id: 3, name: 'Pulse1', type: 'pulse' },
+            { id: 4, name: 'Pulse2', type: 'pulse' },
+            { id: 5, name: 'Pulse3', type: 'pulse' },
+            { id: 6, name: 'CT1', type: 'ct' },
+            { id: 7, name: 'CT2', type: 'ct' },
+            { id: 8, name: 'CT3', type: 'ct' }
+        ];
+        
+        // Close overlay handlers
+        closeOverlayBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                deviceOverlay.style.display = 'none';
+                driverOverlay.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            });
+        });
+        
+        // Close device details handler
+        closeDetailsBtn.addEventListener('click', function() {
+            deviceDetailsContainer.style.display = 'none';
+            detailsOverlay.style.display = 'none';
+        });
+        
+        detailsOverlay.addEventListener('click', function() {
+            deviceDetailsContainer.style.display = 'none';
+            detailsOverlay.style.display = 'none';
+        });
+        
+        // Populate driver grid
+        function populateDriverGrid() {
+            driverGrid.innerHTML = '';
+            drivers.forEach(driver => {
+                const driverCard = document.createElement('div');
+                driverCard.className = 'driver-card';
+                driverCard.dataset.driverId = driver.id;
+                driverCard.dataset.driverName = driver.name;
+                
+                // Check if this driver is already selected
+                const isSelected = selectedDrivers.some(d => d.id === driver.id);
+                if (isSelected) {
+                    driverCard.classList.add('selected');
+                }
+                
+                driverCard.innerHTML = `
+                    <div class="driver-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="driver-name">${driver.name}</div>
+                    <div class="driver-id">ID: ${driver.id}</div>
+                `;
+                driverGrid.appendChild(driverCard);
+            });
+            
+            updateSelectedDriversList();
+        }
+    
+        // Book reservation button click handler
+        document.getElementById('bookReservationBtn').addEventListener('click', function() {
             const startTime = startTimePicker.selectedDates[0];
             const endTime = endTimePicker.selectedDates[0];
             
@@ -917,29 +1268,18 @@
                 return;
             }
             
+            selectedStartTime = startTime;
+            selectedEndTime = endTime;
+            selectedDevice = null;
+            
             fetchAvailableDevices(startTime, endTime);
-            
-            overlay.style.display = 'block';
-            document.body.style.overflow = 'hidden';
+            document.getElementById('deviceSelectionOverlay').style.display = 'block';
         });
-        
-        // Close overlay
-        closeOverlay.addEventListener('click', function() {
-            overlay.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            selectedDeviceId = null;
-            
-            // Reset device selection
-            document.querySelectorAll('.device-card').forEach(card => {
-                card.classList.remove('selected');
-            });
-            confirmSelectionBtn.disabled = true;
-        });
-        
+
         // Tab switching
-        deviceTabs.forEach(tab => {
+        document.querySelectorAll('.device-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                deviceTabs.forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.device-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 
                 document.querySelectorAll('.tab-pane').forEach(pane => {
@@ -949,97 +1289,432 @@
                 document.getElementById(`${this.dataset.tab}-devices`).style.display = 'block';
             });
         });
-        
-        // Device selection
+
+        // Confirm device selection
+        // Confirm device selection
+        document.getElementById('confirmDeviceSelectionBtn').addEventListener('click', function() {
+            if (!selectedDeviceId) {
+                alert('Please select a device first');
+                return;
+            }
+            
+            showDriverSelection(selectedDeviceId);
+        });
+
+        // Device selection handler
+        // Device selection handler
         document.addEventListener('click', function(e) {
             if (e.target.closest('.device-card:not(.booked)')) {
                 const deviceCard = e.target.closest('.device-card');
                 const deviceId = deviceCard.dataset.device;
                 
-                // Remove selection from all cards
+                // Clear previous selection
                 document.querySelectorAll('.device-card').forEach(card => {
                     card.classList.remove('selected');
                 });
                 
-                // Add selection to clicked card
+                // Set new selection
                 deviceCard.classList.add('selected');
                 selectedDeviceId = deviceId;
-                confirmSelectionBtn.disabled = false;
-            }
-        });
-        
-        // Confirm selection
-        confirmSelectionBtn.addEventListener('click', function() {
-            if (!selectedDeviceId) {
-                alert('Please select a device');
-                return;
-            }
-            
-            // Here you would submit the form with the selected device
-            alert(`Reservation confirmed for device ${selectedDeviceId}`);
-            
-            // Close the overlay
-            overlay.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Reset selection
-            selectedDeviceId = null;
-            confirmSelectionBtn.disabled = true;
-        });
-        
-        // Mock function to fetch available devices
-        function fetchAvailableDevices(startTime, endTime) {
-            // In a real application, you would make an AJAX call here
-            const mockBookedDevices = [
-                { id: 'SRV-A-06', type: 'Cisco UCS', user: 'John Doe', start: startTime, end: endTime, status: 'booked' },
-                { id: 'SRV-A-08', type: 'Lenovo SR650', user: 'Jane Smith', start: startTime, end: endTime, status: 'booked' }
-            ];
-            
-            populateBookedDevices(mockBookedDevices);
-        }
-        
-        // Populate booked devices table
-        function populateBookedDevices(bookedDevices) {
-            const bookedDevicesTable = document.getElementById('bookedDevicesTable');
-            bookedDevicesTable.innerHTML = '';
-            
-            bookedDevices.forEach(device => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${device.id}</td>
-                    <td>${device.user}</td>
-                    <td>${new Date(device.start).toLocaleString()}</td>
-                    <td>${new Date(device.end).toLocaleString()}</td>
-                    <td>
-                        <span class="badge bg-danger">Booked</span>
-                    </td>
-                `;
-                bookedDevicesTable.appendChild(row);
-            });
-            
-            // Mark booked devices in the rack view
-            document.querySelectorAll('.device-card').forEach(card => {
-                const deviceId = card.dataset.device;
-                const isBooked = bookedDevices.some(device => device.id === deviceId);
+                selectedDevice = { 
+                    device_id: deviceId,
+                    drivers: {
+                        //PC: deviceCard.querySelector('.device-back [data-driver="PC"]')?.textContent || 'N/A',
+                        Rutomatrix: deviceCard.querySelector('.device-back [data-driver="Rutomatrix"]')?.textContent || 'N/A',
+                        Pulse1: deviceCard.querySelector('.device-back [data-driver="Pulse1"]')?.textContent || 'N/A',
+                        Pulse2: deviceCard.querySelector('.device-back [data-driver="Pulse2"]')?.textContent || 'N/A',
+                        Pulse3: deviceCard.querySelector('.device-back [data-driver="Pulse3"]')?.textContent || 'N/A',
+                        CT1: deviceCard.querySelector('.device-back [data-driver="CT1"]')?.textContent || 'N/A',
+                        CT2: deviceCard.querySelector('.device-back [data-driver="CT2"]')?.textContent || 'N/A',
+                        CT3: deviceCard.querySelector('.device-back [data-driver="CT3"]')?.textContent || 'N/A'
+                    }
+                };
                 
-                if (isBooked) {
-                    card.classList.add('booked');
-                    const statusIndicator = card.querySelector('.status-indicator');
-                    if (statusIndicator) {
-                        statusIndicator.classList.remove('available');
-                        statusIndicator.classList.add('booked');
-                    }
+                // Update confirm button state
+                confirmDeviceSelectionBtn.disabled = false;
+            }
+            
+            
+            // Driver selection
+            if (e.target.closest('.driver-card')) {
+                const driverCard = e.target.closest('.driver-card');
+                const driverId = parseInt(driverCard.dataset.driverId);
+                const driverName = driverCard.dataset.driverName;
+                const driverIp = driverCard.querySelector('.driver-ip').textContent;
+                const isSelected = driverCard.classList.contains('selected');
+                
+                if (!isSelected) {
+                    // Add to selected drivers
+                    selectedDrivers.push({
+                        id: driverId,
+                        name: driverName,
+                        ip: driverIp
+                    });
+                    driverCard.classList.add('selected');
+                    animateDriverSelection(driverCard, driverName, driverIp);
                 } else {
-                    card.classList.remove('booked');
-                    const statusIndicator = card.querySelector('.status-indicator');
-                    if (statusIndicator) {
-                        statusIndicator.classList.remove('booked');
-                        statusIndicator.classList.add('available');
-                    }
+                    // Remove from selected drivers
+                    selectedDrivers = selectedDrivers.filter(d => d.id !== driverId);
+                    driverCard.classList.remove('selected');
                 }
-            });
+                
+                updateSelectedDriversList();
+            }
+        });
+
+        // Event listener for device selection
+        document.addEventListener('click', function(e) {
+    if (e.target.closest('.driver-card')) {
+        const driverCard = e.target.closest('.driver-card');
+        const driverId = parseInt(driverCard.dataset.driverId);
+        const driverName = driverCard.dataset.driverName;
+        const driverIp = driverCard.querySelector('.driver-ip')?.textContent || 'N/A';
+        const isSelected = driverCard.classList.contains('selected');
+        
+        if (!isSelected) {
+            // Check if driver is already selected before adding
+            const alreadySelected = selectedDrivers.some(d => d.id === driverId);
+            if (!alreadySelected) {
+                selectedDrivers.push({
+                    id: driverId,
+                    name: driverName,
+                    ip: driverIp
+                });
+                driverCard.classList.add('selected');
+                animateDriverSelection(driverCard, driverName, driverIp);
+            }
+        } else {
+            // Remove from selected drivers
+            selectedDrivers = selectedDrivers.filter(d => d.id !== driverId);
+            driverCard.classList.remove('selected');
+            updateSelectedDriversList();
+        }
+    }
+    
+    // Handle remove driver button clicks
+    if (e.target.closest('.remove-driver-btn')) {
+        e.stopPropagation();
+        const driverName = e.target.closest('.remove-driver-btn').dataset.driverName;
+        
+        // Remove from selected drivers
+        selectedDrivers = selectedDrivers.filter(d => d.name !== driverName);
+        
+        // Find and unselect the corresponding card
+        const cards = document.querySelectorAll('.driver-card');
+        cards.forEach(card => {
+            if (card.dataset.driverName === driverName) {
+                card.classList.remove('selected');
+            }
+        });
+        
+        updateSelectedDriversList();
+    }
+});
+
+
+    async function showDriverSelection(deviceId) {
+    try {
+        // Update UI
+        selectedDeviceName.textContent = deviceId;
+        selectedDrivers = [];
+        updateSelectedDriversList();
+        
+        // Show loading state
+        driverGrid.innerHTML = '<div class="loading-message"><i class="fas fa-spinner fa-spin"></i> Loading device drivers...</div>';
+        
+        // Fetch device details
+        const response = await fetch(`/api/devices/${deviceId}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
+        const device = await response.json();
+        
+        // Populate driver grid with device-specific IPs
+        populateDriverGrid(device);
+        
+        // Show overlay
+        driverOverlay.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+    } catch (error) {
+        console.error('Error loading device drivers:', error);
+        driverGrid.innerHTML = `
+            <div class="error-message">
+                <p>Failed to load device drivers</p>
+                <p>${error.message}</p>
+                <button class="btn btn-sm btn-primary mt-2" onclick="showDriverSelection('${deviceId}')">
+                    Retry
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Function to populate driver grid with device IPs
+// Function to populate driver grid with device IPs
+function populateDriverGrid(device) {
+    driverGrid.innerHTML = '';
+    
+    // Driver names and their corresponding IP fields in the database
+    const driverMappings = [
+        { name: 'Rutomatrix', ipField: 'Rutomatrix_ip' },
+        { name: 'Pulse1', ipField: 'Pulse1_Ip' },
+        { name: 'Pulse2', ipField: 'Pulse2_ip' },
+        { name: 'Pulse3', ipField: 'Pulse3_ip' },
+        { name: 'CT1', ipField: 'CT1_ip' },
+        { name: 'CT2', ipField: 'CT2_ip' },
+        { name: 'CT3', ipField: 'CT3_ip' }
+    ];
+    
+    // Create cards for all drivers
+    driverMappings.forEach(driver => {
+        // Get the IP address from the device data using the ipField
+        const ip = device[driver.ipField] || 'N/A';
+        
+        const card = document.createElement('div');
+        card.className = 'driver-card';
+        card.dataset.driverId = driver.name; // Using name as ID
+        card.dataset.driverName = driver.name;
+        card.dataset.driverIp = ip;
+        
+        card.innerHTML = `
+            <div class="driver-icon">
+                <i class="fas fa-microchip"></i>
+            </div>
+            <div class="driver-name">${driver.name}</div>
+            <div class="driver-ip">${ip}</div>
+        `;
+        
+        card.addEventListener('click', function() {
+            this.classList.toggle('selected');
+            const isSelected = this.classList.contains('selected');
+            
+            if (isSelected) {
+                // Add to selected drivers if not already present
+                if (!selectedDrivers.some(d => d.name === driver.name)) {
+                    selectedDrivers.push({
+                        name: driver.name,
+                        ip: ip
+                    });
+                }
+            } else {
+                // Remove from selected drivers
+                selectedDrivers = selectedDrivers.filter(d => d.name !== driver.name);
+            }
+            
+            updateSelectedDriversList();
+        });
+        
+        driverGrid.appendChild(card);
+    });
+}
+
+ // Update selected drivers list
+        function updateSelectedDrivers(driverName, ip, isSelected) {
+            if (isSelected) {
+                // Check if driver is already selected
+                if (!selectedDrivers.some(d => d.name === driverName)) {
+                    selectedDrivers.push({ name: driverName, ip });
+                }
+            } else {
+                selectedDrivers = selectedDrivers.filter(d => d.name !== driverName);
+            }
+            updateSelectedDriversList();
+        }
+
+// Back button functionality
+    document.getElementById('backToDevicesBtn').addEventListener('click', function() {
+        driverOverlay.style.display = 'none';
+        deviceOverlay.style.display = 'block';
+    });
+
+function updateSelectedDriversList() {
+    const selectedDriversList = document.getElementById('selectedDriversList');
+    const selectedDriversCount = document.getElementById('selectedDriversCount');
+    
+    // Clear the list first
+    selectedDriversList.innerHTML = '';
+    selectedDriversCount.textContent = selectedDrivers.length;
+    
+    if (selectedDrivers.length === 0) {
+        selectedDriversList.innerHTML = '<div class="text-muted">No drivers selected</div>';
+    } else {
+        // Create a map to track unique drivers by name
+        const uniqueDrivers = new Map();
+        
+        // Add only unique drivers
+        selectedDrivers.forEach(driver => {
+            if (!uniqueDrivers.has(driver.name)) {
+                uniqueDrivers.set(driver.name, driver);
+            }
+        });
+        
+        // Clear and update the selected drivers array
+        selectedDrivers = Array.from(uniqueDrivers.values());
+        
+        // Update the count with unique values
+        selectedDriversCount.textContent = selectedDrivers.length;
+        
+        // Render the unique drivers
+        selectedDrivers.forEach(driver => {
+            const badge = document.createElement('div');
+            badge.className = 'selected-driver-badge';
+            badge.innerHTML = `
+                <span>${driver.name}</span>
+                <small>${driver.ip}</small>
+                <button class="remove-driver-btn" data-driver-name="${driver.name}">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            selectedDriversList.appendChild(badge);
+        });
+    }
+}
+
+
+        function animateDriverSelection(driverCard, driverName, driverIp) {
+            // Create a clone of the card for animation
+            const animatedCard = driverCard.cloneNode(true);
+            animatedCard.style.position = 'absolute';
+            animatedCard.style.top = `${driverCard.getBoundingClientRect().top}px`;
+            animatedCard.style.left = `${driverCard.getBoundingClientRect().left}px`;
+            animatedCard.style.width = `${driverCard.offsetWidth}px`;
+            animatedCard.style.height = `${driverCard.offsetHeight}px`;
+            animatedCard.style.zIndex = '1000';
+            animatedCard.style.pointerEvents = 'none';
+            animatedCard.classList.add('selected');
+            
+            // Add to body for absolute positioning
+            document.body.appendChild(animatedCard);
+            
+            // Get target position (selected drivers list)
+            const target = document.getElementById('selectedDriversList');
+            const targetRect = target.getBoundingClientRect();
+            
+            // Add to selected drivers array
+            selectedDrivers.push({ name: driverName, ip: driverIp });
+            
+            // Animate the card
+            const animation = animatedCard.animate([
+                { 
+                    transform: 'translate(0, 0) scale(1)',
+                    opacity: 1
+                },
+                { 
+                    transform: `translate(${targetRect.left - driverCard.getBoundingClientRect().left}px, 
+                                ${targetRect.top - driverCard.getBoundingClientRect().top}px) scale(0.5)`,
+                    opacity: 0.5
+                }
+            ], {
+                duration: 500,
+                easing: 'ease-out'
+            });
+            
+            animation.onfinish = () => {
+                // Remove the animated card
+                animatedCard.remove();
+                
+                // Update the original card state
+                driverCard.classList.add('selected');
+                
+                // Update the selected drivers list
+                updateSelectedDriversList();
+            };
+        }
+
+
+        async function showDeviceDetails(deviceId) {
+            try {
+                // Show loading state
+                deviceDetailsContent.innerHTML = `
+                    <div class="loading-message">
+                        <i class="fas fa-spinner fa-spin"></i> Loading device details...
+                    </div>
+                `;
+                deviceDetailsContainer.style.display = 'block';
+                detailsOverlay.style.display = 'block';
+
+                const response = await fetch(`/api/devices/${deviceId}`, {
+                    credentials: 'include',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
+
+                const device = await response.json();
+                
+                if (!device || !device.device_id) {
+                    throw new Error('Invalid device data received');
+                }
+
+                // Populate the device details (your existing code)
+                deviceDetailsTitle.textContent = `Device: ${device.device_id}`;
+                deviceDetailsContent.innerHTML = `
+                    <!-- Your device details HTML template -->
+                `;
+
+            } catch (error) {
+                console.error('Device details error:', error);
+                deviceDetailsContent.innerHTML = `
+                    <div class="error-message">
+                        <h5>Error Loading Device</h5>
+                        <p>${error.message}</p>
+                        <p>Please check:</p>
+                        <ul>
+                            <li>Your network connection</li>
+                            <li>Device ID is correct</li>
+                            <li>You have proper permissions</li>
+                        </ul>
+                        <button class="btn btn-sm btn-primary mt-3" onclick="showDeviceDetails('${deviceId}')">
+                            <i class="fas fa-sync-alt me-2"></i>Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        // Confirm driver selection
+// Confirm driver selection
+document.getElementById('confirmDriverSelectionBtn').addEventListener('click', async function() {
+    if (selectedDrivers.length === 0) {
+        alert('Please select at least one driver');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/reservations', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                device_id: selectedDeviceId,
+                drivers: selectedDrivers,
+                csrf_token: document.querySelector('input[name="csrf_token"]').value
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to create reservation');
+        }
+        
+        alert('Reservation created successfully!');
+        window.location.reload();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to create reservation: ' + error.message);
+    }
+});
+
         // Initialize pagination
         function updatePagination() {
             const totalPages = Math.ceil(filteredRows.length / entriesPerPage);
@@ -1135,12 +1810,7 @@
             }
         }
         
-        // Initialize
-        const defaultHeader = table.querySelector(`[data-sort="${currentSort.column}"]`);
-        defaultHeader.classList.add(`sorted-${currentSort.direction}`);
-        sortRows();
-        updatePagination();
-        
+        // Cancel reservation confirmation
         document.querySelectorAll('.cancel-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 if (!confirm('Are you sure you want to cancel this reservation?')) {
@@ -1148,6 +1818,113 @@
                 }
             });
         });
+
+        // Fetch available devices
+        async function fetchAvailableDevices(startTime, endTime) {
+            const container = document.querySelector('.server-rack-container');
+            container.innerHTML = '<div class="loading-message"><i class="fas fa-spinner fa-spin"></i> Loading devices...</div>';
+            
+            try {
+                const response = await fetch(`/api/devices/status?start_time=${encodeURIComponent(startTime.toISOString())}&end_time=${encodeURIComponent(endTime.toISOString())}`);
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                
+                const data = await response.json();
+                renderDevices(data.devices);
+                
+                // Update booked devices tab
+                const bookedDevices = data.devices.filter(d => d.status === 'booked');
+                populateBookedDevices(bookedDevices);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="error-message">
+                        <p>Failed to load devices</p>
+                        <p>${error.message}</p>
+                        <button class="btn btn-sm btn-primary mt-2" onclick="fetchAvailableDevices(selectedStartTime, selectedEndTime)">
+                            Retry
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Render devices in grid layout
+        function renderDevices(devices) {
+            const container = document.querySelector('.server-rack-container');
+            container.innerHTML = '';
+            
+            // Create a grid container with 2 columns
+            const grid = document.createElement('div');
+            grid.className = 'devices-grid';
+            
+            // Filter available devices only
+            const availableDevices = devices.filter(device => device.status === 'available');
+            
+            // Create device cards in 2 columns
+            availableDevices.forEach((device, index) => {
+                // Create a new row every 2 devices
+                if (index % 2 === 0) {
+                    const row = document.createElement('div');
+                    row.className = 'device-row';
+                    grid.appendChild(row);
+                }
+                
+                // Get the last row and add the device card
+                const lastRow = grid.lastChild;
+                const card = createDeviceCard(device);
+                lastRow.appendChild(card);
+            });
+            
+            container.appendChild(grid);
+        }
+
+        // Create device card
+        function createDeviceCard(device) {
+            const card = document.createElement('div');
+            card.className = `device-card ${device.status}`;
+            card.dataset.device = device.device_id;
+            
+            card.innerHTML = `
+                <div class="device-front">
+                    <h5>${device.device_id}</h5>
+                    <div class="status-indicator ${device.status}"></div>
+                    <small>${device.status.toUpperCase()}</small>
+                </div>
+            `;
+            
+            if (device.status === 'available') {
+                card.style.cursor = 'pointer';
+            } else {
+                card.style.cursor = 'not-allowed';
+            }
+            
+            return card;
+        }
+
+        // Populate booked devices table
+        function populateBookedDevices(bookedDevices) {
+            const table = document.getElementById('bookedDevicesTable');
+            table.innerHTML = bookedDevices.length === 0
+                ? '<tr><td colspan="5" class="text-center">No booked devices found</td></tr>'
+                : bookedDevices.map(device => `
+                    <tr>
+                        <td>${device.device_id}</td>
+                        <td>${device.booked_by || 'System'}</td>
+                        <td>${new Date(device.reservation_start).toLocaleString()}</td>
+                        <td>${new Date(device.reservation_end).toLocaleString()}</td>
+                        <td><span class="badge bg-danger">Booked</span></td>
+                    </tr>
+                `).join('');
+        }
+
+        // Initialize
+        populateDriverGrid();
+        const defaultHeader = table.querySelector(`[data-sort="${currentSort.column}"]`);
+        defaultHeader.classList.add(`sorted-${currentSort.direction}`);
+        sortRows();
+        updatePagination();
     });
     </script>
 </body>
