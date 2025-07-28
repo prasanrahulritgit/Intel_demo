@@ -23,52 +23,38 @@ class Device(db.Model):
     PC_IP = db.Column(db.String(15))
     Rutomatrix_ip = db.Column(db.String(15))
     Pulse1_Ip = db.Column(db.String(15))
-    Pulse2_ip = db.Column(db.String(15))
-    Pulse3_ip = db.Column(db.String(15))
     CT1_ip = db.Column(db.String(15))
-    CT2_ip = db.Column(db.String(15))
-    CT3_ip = db.Column(db.String(15))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    
     def __init__(self, **kwargs):
         super(Device, self).__init__(**kwargs)
         self.validate_ips()
     
     def validate_ips(self):
         ip_fields = [
-            'PC_IP', 'Rutomatrix_ip', 
-            'Pulse1_Ip', 'Pulse2_ip', 'Pulse3_ip',
-            'CT1_ip', 'CT2_ip', 'CT3_ip'
+            'PC_IP', 'Rutomatrix_ip', 'Pulse1_Ip',
+            'CT1_ip' 
         ]
         for field in ip_fields:
             ip = getattr(self, field)
             if ip and not self.validate_ip(ip):
-                raise ValueError(f"Invalid IP format in {field}")
+                raise ValueError(f"Invalid IP format in {field}: {ip}")
     
     @staticmethod
     def validate_ip(ip):
-        """Validate IPv4 address format"""
-        parts = ip.split('.')
-        if len(parts) != 4:
-            return False
-        try:
-            return all(0 <= int(part) <= 255 for part in parts)
-        except ValueError:
-            return False
+        """Validate IPv4 address format using regex for stricter validation"""
+        pattern = r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        return re.match(pattern, ip) is not None
         
     def to_dict(self):
+        """Convert the model instance to a dictionary, including all fields."""
         return {
             'device_id': self.device_id,
             'PC_IP': self.PC_IP,
             'Rutomatrix_ip': self.Rutomatrix_ip,
             'Pulse1_Ip': self.Pulse1_Ip,
-            'Pulse2_ip': self.Pulse2_ip,
-            'Pulse3_ip': self.Pulse3_ip,
             'CT1_ip': self.CT1_ip,
-            'CT2_ip': self.CT2_ip,
-            'CT3_ip': self.CT3_ip,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
@@ -82,6 +68,7 @@ class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(80), unique=True, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
     user_ip = db.Column(db.String(15))
     password_hash = db.Column(db.String(128), nullable=False)  # NOT 'password'
     role = db.Column(db.String(20), default='user')
@@ -149,9 +136,10 @@ class Reservation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     device_id = db.Column(db.String(50), db.ForeignKey('devices.device_id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    ip_type = db.Column(db.String(20))
     start_time = db.Column(ISTDateTime(), nullable=False)
     end_time = db.Column(ISTDateTime(), nullable=False)
+    purpose = db.Column(db.String(200))
+    status = db.Column(db.String(20), default='upcoming')  # upcoming, active, expired
     
     device = db.relationship('Device', backref='reservations')
     user = db.relationship('User', backref='reservations')
@@ -182,36 +170,62 @@ class Reservation(db.Model):
             ist = pytz.timezone('Asia/Kolkata')
             current_time = datetime.now(ist)
             
-            # Direct SQL delete for efficiency
-            result = db.session.execute(
-                db.delete(cls)
-                .where(cls.end_time < current_time)
-            )
+            # Update status first
+            expired = cls.query.filter(cls.end_time < current_time).all()
+            for res in expired:
+                res.status = 'expired'
+            
             db.session.commit()
-            return result.rowcount
+            return len(expired)
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Failed to delete expired: {str(e)}")
+            current_app.logger.error(f"Failed to update expired: {str(e)}")
             return 0
 
-    @property
-    def status(self):
-        """Determine status based on current IST"""
+    def update_status(self):
+        """Update status based on current time"""
         ist = pytz.timezone('Asia/Kolkata')
         now = datetime.now(ist)
         
         if self.end_time < now:
-            return 'expired'
+            self.status = 'expired'
         elif self.start_time <= now <= self.end_time:
-            return 'active'
-        return 'upcoming'
+            self.status = 'active'
+        else:
+            self.status = 'upcoming'
 
     def can_cancel(self, user):
         """Check if user can cancel this reservation"""
-        return self.user_id == user.id and self.status == 'upcoming'
+        return (self.user_id == user.id or user.role == 'admin') and self.status == 'upcoming'
+
+    def to_dict(self):
+        """Convert reservation to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'device_id': self.device_id,
+            'user_id': self.user_id,
+            'start_time': self.start_time.isoformat(),
+            'end_time': self.end_time.isoformat(),
+            'purpose': self.purpose,
+            'status': self.status,
+            'device': {
+                'device_id': self.device.device_id,
+                'PC_IP': self.device.PC_IP,
+                'Rutomatrix_ip': self.device.Rutomatrix_ip,
+                'Pulse1_Ip': self.device.Pulse1_Ip,
+                'CT1_ip': self.device.CT1_ip
+            },
+            'user': {
+                'id': self.user.id,
+                'username': self.user.username,
+                'email': self.user.email
+            }
+        }
 
     def __repr__(self):
         return f'<Reservation {self.id} for device {self.device_id}>'
+    
+    
     
 class DeviceUsage(db.Model):
     __tablename__ = 'device_usage_history'
@@ -265,29 +279,47 @@ class DeviceUsage(db.Model):
             return (self.actual_end_time - self.actual_start_time).total_seconds()
         return None
 
+  
+
     @classmethod
-    def close_active_sessions(cls, device_id=None, user_id=None):
-        """Mark all active sessions as completed"""
+    def get_active_sessions(cls, device_id=None, user_id=None):
+        query = cls.query.filter(cls.actual_end_time.is_(None))
+    
+        if device_id:
+            query = query.filter(cls.device_id == device_id)
+        if user_id:
+            query = query.filter(cls.user_id == user_id)
+        
+        return query.all()
+    
+    @classmethod
+    def terminate_active_sessions(cls, device_id=None, user_id=None, reason=None):
         try:
             ist = pytz.timezone('Asia/Kolkata')
             current_time = datetime.now(ist)
-            
+        
             query = db.update(cls)\
                 .where(cls.actual_end_time.is_(None))\
-                .values(actual_end_time=current_time, status='completed')
-            
+             .values(
+                actual_end_time=current_time,
+                status='terminated',
+                termination_reason=reason or 'System terminated'
+                 )
+        
             if device_id:
-                query = query.where(cls.device_id == device_id)
+                 query = query.where(cls.device_id == device_id)
             if user_id:
                 query = query.where(cls.user_id == user_id)
-                
+            
             result = db.session.execute(query)
             db.session.commit()
             return result.rowcount
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Failed to close active sessions: {str(e)}")
+            current_app.logger.error(f"Failed to terminate active sessions: {str(e)}")
             return 0
+
+
 
     def __repr__(self):
         return f'<DeviceUsage {self.id} - Device {self.device_id} by User {self.user_id}>'
