@@ -1,5 +1,6 @@
 from flask import Blueprint, abort, current_app, jsonify, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
+from openai import api_type
 import pytz
 from sqlalchemy import delete, exists
 from models import DeviceUsage, Reservation, Device, User, db
@@ -84,18 +85,6 @@ def get_devices_with_availability():
             'success': False,
             'message': 'Failed to check device availability'
         }), 500
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -211,7 +200,6 @@ def get_devices():
 
 
 @reservation_bp.route('/api/booked-devices', methods=['GET'])
-@login_required
 def get_booked_devices():
     """Get all currently booked devices with their reservation details"""
     try:
@@ -237,22 +225,7 @@ def get_booked_devices():
         ).order_by(
             Reservation.start_time.asc()
         )
-        
-        # Apply filters
-        if device_id:
-            query = query.filter(Reservation.device_id == device_id)
-            
-        if user_id:
-            if current_user.role != 'admin' and current_user.id != int(user_id):
-                return jsonify({
-                    'success': False,
-                    'message': 'Unauthorized to view other users reservations'
-                }), 403
-            query = query.filter(Reservation.user_id == user_id)
-        elif current_user.role != 'admin':
-            query = query.filter(Reservation.user_id == current_user.id)
-        
-        # Apply status filters
+
         status_filters = []
         if show_active:
             status_filters.append(
@@ -311,12 +284,6 @@ def get_booked_devices():
                     'timezone': 'Asia/Kolkata'
                 },
                 'status': reservation.status,
-                'actions': {
-                    'can_cancel': reservation.can_cancel(current_user),
-                    'can_modify': (current_user.role == 'admin' or 
-                                 (reservation.user_id == current_user.id and 
-                                  reservation.status == 'upcoming'))
-                },
                 'purpose': reservation.purpose or ''
             })
         
@@ -479,10 +446,21 @@ def create_reservation():
             start_time=start_time,
             end_time=end_time,
             purpose=data.get('purpose', ''),
-            status='upcoming'
+            status='upcoming'  # <-- Reservation status
         )
-        
         db.session.add(reservation)
+        db.session.flush()
+
+        usage_record = DeviceUsage(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            reservation_id=reservation.id,  # <-- Must match
+            actual_start_time=start_time.replace(tzinfo=None),
+            actual_end_time=end_time.replace(tzinfo=None),
+            status='upcoming',  # <-- Critical change
+            ip_address=request.remote_addr
+        )
+        db.session.add(usage_record)
         db.session.commit()
         
         return jsonify({
@@ -507,45 +485,42 @@ def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     
     if reservation.user_id != current_user.id and not current_user.is_admin:
-        return jsonify({
-            'success': False,
-            'message': 'Unauthorized: You can only cancel your own reservations',
-            'code': 403,
-            'reservation_id': reservation_id
-        }), 403
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     try:
-        # Create usage record before deletion
-        usage_record = DeviceUsage(
-            device_id=reservation.device_id,
-            user_id=reservation.user_id,
-            reservation_id=reservation.id,
-            actual_start_time=reservation.start_time,
-            actual_end_time=datetime.now(),
-            status='cancelled',
-            ip_address=request.remote_addr
-        )
+        # Find the existing DeviceUsage record
+        usage_record = DeviceUsage.query.filter_by(reservation_id=reservation.id).first()
+        
+        if not usage_record:
+            # Log error (for debugging)
+            current_app.logger.error(f"No DeviceUsage found for reservation_id={reservation.id}")
+            return jsonify({
+                'success': False,
+                'message': 'Device usage record not found',
+                'reservation_id': reservation.id
+            }), 404
+
+        # Update the record
+        usage_record.actual_end_time = datetime.now()
+        usage_record.status = 'Terminated'  # <-- Update status
         db.session.add(usage_record)
         
         # Delete the reservation
         db.session.delete(reservation)
         db.session.commit()
-        
-        # Return the deleted reservation ID for frontend to update
+
         return jsonify({
-            'message': 'Reservation cancelled successfully',
-            'reservation_id': reservation_id,
+            'success': True,
+            'message': 'Reservation cancelled',
+            'reservation_id': reservation_id
         })
-    
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Cancellation failed: {str(e)}")
         return jsonify({
             'success': False,
             'message': 'Failed to cancel reservation',
-            'code': 500,
-            'error': str(e),
-            'reservation_id': reservation_id
+            'error': str(e)
         }), 500
 
 
