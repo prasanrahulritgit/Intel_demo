@@ -821,6 +821,24 @@
     color: #6c757d;
 }
 
+/* Add this to your stylesheet */
+.device-item {
+    /* Your existing device item styles */
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.device-item.selected {
+    background-color: #e0f7fa;
+    border: 2px solid #4dd0e1;
+    box-shadow: 0 0 8px rgba(77, 208, 225, 0.5);
+}
+
+.device-item.selected .device-name {
+    font-weight: bold;
+    color: #007bff;
+}
+
 </style>
 </head>
 <body>
@@ -1060,9 +1078,9 @@
                                                     <i class="fas fa-rocket"></i> Launch
                                                 </button>
 
-                                                <form action="{{ url_for('reservation.cancel_reservation', reservation_id=res.id) }}" method="POST" class="m-0 cancel-form">
+                                                <form class="m-0 cancel-form" data-reservation-id="{{ res.id }}">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to cancel this reservation?');">
+                                                    <button type="button" class="btn btn-danger cancel-btn">
                                                         <i class="bi bi-x-circle"></i> Cancel
                                                     </button>
                                                 </form>
@@ -1116,6 +1134,7 @@
     let startTime = '';
     let endTime = '';
     let currentFilter = '';
+    
 
     // DOM elements
     const bookReservationBtn = document.getElementById('bookReservationBtn');
@@ -1220,52 +1239,63 @@
             }
         });
 
-         document.getElementById('confirmDeviceSelectionBtn').addEventListener('click', async function() {
-        if (!selectedDeviceId) {
-            showToast('Please select a device first', 'warning');
-            return;
-        }
-        
-        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-        const loadingToast = showToast('Processing your reservation...', 'info', true);
-        
-        try {
-            const response = await fetch('/api/reservations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({
-                    device_id: selectedDeviceId,
-                    start_time: startTime,
-                    end_time: endTime,
-                    csrf_token: csrfToken
-                })
+                    // Single event listener for the confirm button
+            document.getElementById('confirmDeviceSelectionBtn').addEventListener('click', async function() {
+                if (!selectedDeviceId) {
+                    showToast('Please select a device first', 'warning');
+                    return;
+                }
+                
+                // Verify the selected device is still available
+                const selectedDevice = allDevicesData.find(d => d.device_id === selectedDeviceId);
+                if (!selectedDevice || selectedDevice.status !== 'available') {
+                    showToast('The selected device is no longer available. Please select another device.', 'error');
+                    return;
+                }
+                
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                const loadingToast = showToast('Processing your reservation...', 'info', true);
+                
+                try {
+                    const response = await fetch('/api/reservations', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            device_id: selectedDeviceId,
+                            start_time: startTime,
+                            end_time: endTime,
+                            csrf_token: csrfToken
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Failed to create reservation');
+                    }
+                    
+                    showToast('Device booked successfully!', 'success');
+                    deviceSelectionOverlay.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                    
+                    // Refresh the reservations table
+                    window.location.reload();
+                    
+                } catch (error) {
+                    console.error('Booking error:', error);
+                    showToast(error.message, 'error');
+                } finally {
+                    if (loadingToast) {
+                        setTimeout(() => loadingToast.hide(), 2500);
+                    }
+                }
             });
-            
-            const data = await response.json();
-            
-            if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Failed to create reservation');
-            }
-            
-            showToast('Reservation successful!', 'success');
-            deviceSelectionOverlay.style.display = 'none';
-            document.body.style.overflow = 'auto';
-            
-            // Refresh the reservations table
-            window.location.reload();
-            
-        } catch (error) {
-            console.error('Booking error:', error);
-            showToast(error.message, 'error');
-        } finally {
-            if (loadingToast) {
-                setTimeout(() => loadingToast.hide(), 2500);
-            }
-        }
-    });
+
+            // Initialize with confirm button disabled
+            document.getElementById('confirmDeviceSelectionBtn').disabled = true;
 
 
 
@@ -1277,23 +1307,24 @@
         });
     });
 
-    // Device tabs switching
-    deviceTabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabName = this.getAttribute('data-tab');
-            
-            deviceTabs.forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            
-            if (tabName === 'available') {
-                availableDevicesTab.style.display = 'block';
-                bookedDevicesTab.style.display = 'none';
-            } else {
-                availableDevicesTab.style.display = 'none';
-                bookedDevicesTab.style.display = 'block';
-            }
+        deviceTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const tabName = this.getAttribute('data-tab');
+                
+                deviceTabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                if (tabName === 'available') {
+                    availableDevicesTab.style.display = 'block';
+                    bookedDevicesTab.style.display = 'none';
+                    document.getElementById('confirmDeviceSelectionBtn').style.display = 'block';
+                } else {
+                    availableDevicesTab.style.display = 'none';
+                    bookedDevicesTab.style.display = 'block';
+                    document.getElementById('confirmDeviceSelectionBtn').style.display = 'none';
+                }
+            });
         });
-    });
 
         async function loadDevices() {
             const serverRackContainer = document.querySelector('.server-rack-container');
@@ -1551,19 +1582,14 @@ function updateDeviceDisplay() {
                             <span class="booked-device-card-value">${reservation.time.duration_minutes} minutes</span>
                         </div>
                     </div>
+                    <!-- JavaScript version (unchanged) -->
+                    <!-- JavaScript version (unchanged) -->
                     <div class="booked-device-card-footer">
                         ${reservation.actions.can_cancel ? `
                         <button class="btn btn-sm btn-outline-danger cancel-btn"
                             title="Cancel Reservation"
                             data-reservation-id="${reservation.id}">
                             <i class="fas fa-times"></i> Cancel
-                        </button>
-                        ` : ''}
-                        ${reservation.actions.can_modify ? `
-                        <button class="btn btn-sm btn-outline-primary modify-btn"
-                            title="Modify Reservation"
-                            data-reservation-id="${reservation.id}">
-                            <i class="fas fa-edit"></i> Modify
                         </button>
                         ` : ''}
                     </div>
@@ -1585,53 +1611,96 @@ function updateDeviceDisplay() {
         return 'fas fa-server other-icon';
     }
 
-        async function cancelReservation(reservationId, isAdmin = false) {
-            const confirmMessage = isAdmin 
-                ? 'Are you sure you want to cancel this reservation as admin?'
-                : 'Are you sure you want to cancel your reservation?';
+        async function cancelReservation(reservationId) {
+            if (!confirm('Are you sure you want to cancel this reservation?')) return;
+
+            // Find all buttons for this reservation
+            const buttons = document.querySelectorAll(`.cancel-btn[data-reservation-id="${reservationId}"], 
+                                                    [data-reservation-id="${reservationId}"] .cancel-btn`);
             
-            if (!confirm(confirmMessage)) return;
+            // Set loading state
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+            });
 
             try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
                 const response = await fetch(`/reservation/cancel/${reservationId}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                        'X-CSRFToken': csrfToken
                     },
-                    credentials: 'include'
+                    body: JSON.stringify({ csrf_token: csrfToken })
                 });
 
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to cancel reservation');
+                if (!response.ok) throw new Error('Failed to cancel reservation');
+
+                // Find and remove the table row
+                const row = document.querySelector(`tr.reservation-row[data-reservation-id="${reservationId}"]`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s ease';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+                        updateReservationCount(); // Update counter if needed
+                    }, 300);
                 }
 
-                showToast(data.message, 'success');
-                
-                // Instead of just removing the card, refresh the page
-                window.location.reload();
-                
+                showToast('Reservation cancelled successfully!', 'success');
+                window.location.reload()
             } catch (error) {
                 console.error('Cancellation error:', error);
                 showToast(error.message, 'error');
+                buttons.forEach(btn => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+                });
             }
         }
 
-        function addBookingButtonEventListeners() {
-            document.querySelectorAll('.cancel-btn').forEach(button => {
-                button.addEventListener('click', async (e) => {
-                    e.preventDefault(); // This prevents any default form submission/navigation
-                    e.stopPropagation(); // Prevent event bubbling
-                    
-                    const reservationId = button.dataset.reservationId;
-                    const isAdmin = button.hasAttribute('data-admin-cancel');
-                    await cancelReservation(reservationId, isAdmin);
-                });
-            });
-        }
+        // Event delegation for all cancel buttons
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.cancel-btn');
+            if (!btn) return;
+            
+            e.preventDefault();
+            const form = btn.closest('form');
+            const row = btn.closest('tr');
+            const reservationId = btn.dataset.reservationId || 
+                                form?.dataset.reservationId || 
+                                row?.dataset.reservationId;
+            
+            if (reservationId) cancelReservation(reservationId);
+        });
+
+
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-message">${message}</div>
+        <button class="toast-close">&times;</button>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    }, 5000);
+    
+    // Manual close
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        toast.classList.add('fade-out');
+        setTimeout(() => toast.remove(), 300);
+    });
+}
+
 
     function getCSRFToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
@@ -1658,141 +1727,132 @@ function updateDeviceDisplay() {
         });
     }
 
-        async function selectDevice(device) {
+
+
+        // Function to handle device selection (highlighting only)
+        function selectDevice(device) {
+            // Remove highlight from all devices first
+            document.querySelectorAll('.device-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // Highlight the newly selected device
+            const deviceElement = document.querySelector(`.device-item[data-device-id="${device.device_id}"]`);
+            if (deviceElement) {
+                deviceElement.classList.add('selected');
+            }
+            
+            // Store the selected device ID
             selectedDeviceId = device.device_id;
             
-            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-            const loadingToast = showToast('Processing your reservation...', 'info', true);
+            // Enable the confirm button since we have a selection
+            document.getElementById('confirmDeviceSelectionBtn').disabled = false;
+        }
+
+
+
+
+        function createDeviceCard(device) {
+            const deviceCard = document.createElement('div');
+            deviceCard.className = 'device-card';
+            deviceCard.dataset.deviceId = device.device_id;
             
-            try {
-                const response = await fetch('/api/reservations', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    body: JSON.stringify({
-                        device_id: selectedDeviceId,
-                        start_time: startTime,
-                        end_time: endTime,
-                        csrf_token: csrfToken
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok || !data.success) {
-                    throw new Error(data.message || 'Failed to create reservation');
-                }
-                
-                showToast('Reservation successful!', 'success');
-                deviceSelectionOverlay.style.display = 'none';
-                document.body.style.overflow = 'auto';
-                
-                // Refresh both available and booked devices
-                await Promise.all([loadDevices(), loadBookedDevices()]);
-                
-            } catch (error) {
-                console.error('Booking error:', error);
-                showToast(error.message, 'error');
-            } finally {
-                if (loadingToast) {
-                    setTimeout(() => loadingToast.hide(), 2500);
-                }
+            if (device.status === 'booked') {
+                deviceCard.classList.add('booked', 'disabled');
+            } else {
+                deviceCard.classList.add('available');
             }
-        }
 
+            const deviceName = device.name || `Device ${device.device_id}`;
+            const iconClass = getDeviceIconClass(device.type || 'other');
+            
+            deviceCard.innerHTML = `
+                <div class="device-icon">
+                    <i class="${iconClass}"></i>
+                </div>
+                <div class="device-name">${deviceName}</div>
+                <div class="device-status">
+                    ${device.status === 'available' ? 
+                        `<span class="badge bg-success">Available</span>` : 
+                        `<span class="badge bg-danger">Booked</span>`
+                    }
+                </div>
+            `;
 
-
-    function createDeviceCard(device) {
-        const deviceCard = document.createElement('div');
-        deviceCard.className = 'device-card';
-        deviceCard.dataset.deviceId = device.device_id;
-        
-        if (device.status === 'booked') {
-            deviceCard.classList.add('booked', 'disabled');
-        } else {
-            deviceCard.classList.add('available');
-        }
-
-        const deviceName = device.name || `Device ${device.device_id}`;
-        const iconClass = getDeviceIconClass(device.type || 'other');
-        
-        deviceCard.innerHTML = `
-            <div class="device-icon">
-                <i class="${iconClass}"></i>
-            </div>
-            <div class="device-name">${deviceName}</div>
-            <div class="device-status">
-                ${device.status === 'available' ? 
-                    `<span class="badge bg-success">Available</span>` : 
-                    `<span class="badge bg-danger">Booked</span>`
-                }
-            </div>
-        `;
-
-        if (device.status === 'available') {
-            deviceCard.addEventListener('click', () => {
-                // Remove selection from all other cards
-                document.querySelectorAll('.device-card').forEach(card => {
-                    card.classList.remove('selected');
+            if (device.status === 'available') {
+                deviceCard.addEventListener('click', () => {
+                    // Remove selection from all other cards
+                    document.querySelectorAll('.device-card').forEach(card => {
+                        card.classList.remove('selected');
+                    });
+                    
+                    // Select this card
+                    deviceCard.classList.add('selected');
+                    selectedDeviceId = device.device_id;
+                    showToast(`Device ${device.device_id} selected. Click "Confirm" to book.`, 'info');
                 });
-                
-                // Select this card
-                deviceCard.classList.add('selected');
-                selectedDeviceId = device.device_id;
-            });
-        } else {
-            deviceCard.addEventListener('click', () => {
-                showToast('This device is already booked for the selected time', 'warning');
-            });
+            } else {
+                deviceCard.addEventListener('click', () => {
+                    showToast('This device is already booked for the selected time', 'warning');
+                });
+            }
+
+            return deviceCard;
         }
 
-        return deviceCard;
-    }
 
 
-    function updateDeviceCardStatus(deviceId) {
-        const deviceCards = document.querySelectorAll('.device-card');
-        const device = allDevicesData.find(d => d.device_id === deviceId);
-        
-        if (!device) return;
+        function updateDeviceCardStatus(deviceId) {
+            const deviceCards = document.querySelectorAll('.device-card');
+            const device = allDevicesData.find(d => d.device_id === deviceId);
+            
+            if (!device) return;
 
-        const deviceBookings = bookedDevicesData.filter(booking => 
-            booking.device_id === deviceId
-        );
-        
-        const isBooked = deviceBookings.some(booking => 
-            isTimeOverlap(startTime, endTime, booking.start_time, booking.end_time)
-        );
-        
-        const newStatus = isBooked ? 'booked' : 'available';
+            const deviceBookings = bookedDevicesData.filter(booking => 
+                booking.device_id === deviceId
+            );
+            
+            const isBooked = deviceBookings.some(booking => 
+                isTimeOverlap(startTime, endTime, booking.start_time, booking.end_time)
+            );
+            
+            const newStatus = isBooked ? 'booked' : 'available';
 
-        deviceCards.forEach(card => {
-            if (card.dataset.deviceId === deviceId) {
-                card.classList.remove('available', 'booked', 'disabled');
-                
-                if (isBooked) {
-                    card.classList.add('booked', 'disabled');
-                    card.querySelector('.device-status').innerHTML = '<span class="badge bg-danger">Booked</span>';
+            deviceCards.forEach(card => {
+                if (card.dataset.deviceId === deviceId) {
+                    card.classList.remove('available', 'booked', 'disabled');
                     
-                    card.onclick = () => {
-                        showToast('This device is already booked for the selected time', 'warning');
-                    };
-                } else {
-                    card.classList.add('available');
-                    card.querySelector('.device-status').innerHTML = '<span class="badge bg-success">Available</span>';
-                    
-                    card.onclick = () => selectDevice(device);
-                }
+                    if (isBooked) {
+                        card.classList.add('booked', 'disabled');
+                        card.querySelector('.device-status').innerHTML = '<span class="badge bg-danger">Booked</span>';
+                        
+                        card.onclick = () => {
+                            showToast('This device is already booked for the selected time', 'warning');
+                        };
+                    } else {
+                        card.classList.add('available');
+                        card.querySelector('.device-status').innerHTML = '<span class="badge bg-success">Available</span>';
+                        
+                        card.onclick = () => {
+                            // Remove selection from all other cards
+                            document.querySelectorAll('.device-card').forEach(c => {
+                                c.classList.remove('selected');
+                            });
+                            
+                            // Select this card
+                            card.classList.add('selected');
+                            selectedDeviceId = device.device_id;
+                            showToast(`Device ${device.device_id} selected. Click "Confirm" to book.`, 'info');
+                        };
+                    }
 
-                const deviceIndex = allDevicesData.findIndex(d => d.device_id === deviceId);
-                if (deviceIndex !== -1) {
-                    allDevicesData[deviceIndex].status = newStatus;
+                    const deviceIndex = allDevicesData.findIndex(d => d.device_id === deviceId);
+                    if (deviceIndex !== -1) {
+                        allDevicesData[deviceIndex].status = newStatus;
+                    }
                 }
-            }
-        });
-    }
+            });
+        }
 
     function renderDevices(devices) {
         const serverRackContainer = document.querySelector('.server-rack-container');

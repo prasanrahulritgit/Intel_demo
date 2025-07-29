@@ -217,8 +217,6 @@ class Reservation(db.Model):
             },
             'user': {
                 'id': self.user.id,
-                'username': self.user.username,
-                'email': self.user.email
             }
         }
 

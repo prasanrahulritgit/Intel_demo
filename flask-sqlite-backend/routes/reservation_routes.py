@@ -508,9 +508,10 @@ def cancel_reservation(reservation_id):
     
     if reservation.user_id != current_user.id and not current_user.is_admin:
         return jsonify({
-            'status': 'error', 
-            'message': 'Unauthorized',
-            'code': 403
+            'success': False,
+            'message': 'Unauthorized: You can only cancel your own reservations',
+            'code': 403,
+            'reservation_id': reservation_id
         }), 403
 
     try:
@@ -530,19 +531,21 @@ def cancel_reservation(reservation_id):
         db.session.delete(reservation)
         db.session.commit()
         
+        # Return the deleted reservation ID for frontend to update
         return jsonify({
-            'status': 'success',
             'message': 'Reservation cancelled successfully',
             'reservation_id': reservation_id,
-            'code': 200
         })
+    
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Cancellation failed: {str(e)}")
         return jsonify({
-            'status': 'error',
+            'success': False,
             'message': 'Failed to cancel reservation',
-            'code': 500
+            'code': 500,
+            'error': str(e),
+            'reservation_id': reservation_id
         }), 500
 
 
@@ -615,7 +618,6 @@ def get_user_reservations():
                 'device_id': reservation.device_id,
                 'device_name': device.device_id,  # Assuming device_id is the name
                 'user_id': user.id,
-                'username': user.user_name,
                 'user_ip': user.user_ip,
                 'device_ip': device_ip,
                 'ip_type': reservation.ip_type,
@@ -677,7 +679,6 @@ def get_user_reservation_details(user_id):
         # Format the response
         result = {
             'user_id': user.id,
-            'username': user.user_name,
             'user_ip': user.user_ip,
             'role': user.role,
             'reservations': []
@@ -783,7 +784,6 @@ def get_user_reservations_with_time(user_id):
         # Format response
         result = {
             'user_id': user.id,
-            'username': user.user_name,
             'user_ip': user.user_ip,
             'timezone': timezone,
             'current_time': current_time.isoformat(),
