@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from flask import Blueprint, Response, abort, current_app, json, jsonify, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
 from openai import api_type
@@ -6,6 +5,9 @@ import pytz
 from sqlalchemy import delete, exists
 from models import DeviceUsage, Reservation, Device, User, db
 from datetime import datetime, timezone
+from sqlalchemy.exc import SQLAlchemyError
+from collections import OrderedDict
+import json
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -206,14 +208,14 @@ def get_booked_devices():
     try:
         ist = pytz.timezone('Asia/Kolkata')
         current_time_ist = datetime.now(ist)
-        
+       
         # Get query parameters for filtering
         device_id = request.args.get('device_id')
         user_id = request.args.get('user_id')
         show_expired = request.args.get('show_expired', 'false').lower() == 'true'
         show_upcoming = request.args.get('show_upcoming', 'true').lower() == 'true'
         show_active = request.args.get('show_active', 'true').lower() == 'true'
-        
+       
         # Base query with device and user details
         query = db.session.query(
             Reservation,
@@ -226,7 +228,8 @@ def get_booked_devices():
         ).order_by(
             Reservation.start_time.asc()
         )
-
+       
+        # Apply status filters
         status_filters = []
         if show_active:
             status_filters.append(
@@ -237,12 +240,12 @@ def get_booked_devices():
             status_filters.append(Reservation.start_time > current_time_ist)
         if show_expired:
             status_filters.append(Reservation.end_time < current_time_ist)
-        
+       
         if status_filters:
             query = query.filter(db.or_(*status_filters))
-        
+       
         results = query.all()
-        
+       
         # Format the response
         booked_devices = []
         for reservation, device, user in results:
@@ -254,29 +257,31 @@ def get_booked_devices():
                 ip_type = 'pulse'
             elif 'ct' in device.device_id.lower():
                 ip_type = 'ct'
-            
+           
             ip_address = {
                 'pc': device.PC_IP,
                 'rutomatrix': device.Rutomatrix_ip,
                 'pulse': device.Pulse1_Ip,
                 'ct': device.CT1_ip
             }.get(ip_type, None)
-            
+           
             # Convert times to IST
             start_ist = reservation.start_time.astimezone(ist)
             end_ist = reservation.end_time.astimezone(ist)
-            
+ 
+            device_info = OrderedDict()
+            device_info['id'] = device.device_id
+            device_info['ct1_ip'] = device.CT1_ip
+            device_info['pulse1_ip'] = device.Pulse1_Ip
+            device_info['pc_ip'] = device.PC_IP
+            device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+ 
             booked_devices.append({
                 'id': reservation.id,
-                'device': {
-                    'id': device.device_id,
-                    'pc_ip': device.PC_IP,
-                    'rutomatrix_ip': device.Rutomatrix_ip,
-                    'pulse1_ip': device.Pulse1_Ip,
-                    'ct1_ip': device.CT1_ip,
-                },
+                'device': device_info,
                 'user': {
                     'id': user.id,
+                    'role':current_user.role
                 },
                 'time': {
                     'start': start_ist.isoformat(),
@@ -287,25 +292,27 @@ def get_booked_devices():
                 'status': reservation.status,
                 'purpose': reservation.purpose or ''
             })
-        
-        return jsonify({
+       
+        response = {
             'success': True,
             'data': {
                 'booked_devices': booked_devices,
                 'meta': {
-                    'count': len(booked_devices),
-                    'current_time': current_time_ist.isoformat(),
-                    'filters': {
-                        'device_id': device_id,
-                        'user_id': user_id,
-                        'show_expired': show_expired,
-                        'show_upcoming': show_upcoming,
-                        'show_active': show_active
-                    }
+                'count': len(booked_devices),
+                'current_time': current_time_ist.isoformat(),
+                'filters': {
+                    'device_id': device_id,
+                    'user_id': user_id,
+                    'show_expired': show_expired,
+                    'show_upcoming': show_upcoming,
+                    'show_active': show_active
                 }
             }
-        })
-        
+        }
+    }
+ 
+        return Response(json.dumps(response, ensure_ascii=False, sort_keys=False), mimetype='application/json')
+       
     except Exception as e:
         current_app.logger.error(f"Failed to fetch booked devices: {str(e)}", exc_info=True)
         return jsonify({
@@ -314,7 +321,6 @@ def get_booked_devices():
             'error': str(e)
         }), 500
     
-
 
 @reservation_bp.route('/api/reservations', methods=['GET'])
 @login_required
@@ -677,42 +683,41 @@ def create_reservation():
 def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     
+    # Authorization check
     if reservation.user_id != current_user.id and not current_user.is_admin:
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+        return jsonify({
+            'success': False,
+            'message': 'Unauthorized: You can only cancel your own reservations'
+        }), 403
 
     try:
-        # Find the existing DeviceUsage record
+        # Start transaction
+        db.session.begin_nested()
+
+        # Update DeviceUsage record if exists
         usage_record = DeviceUsage.query.filter_by(reservation_id=reservation.id).first()
         
-        if not usage_record:
-            # Log error (for debugging)
-            current_app.logger.error(f"No DeviceUsage found for reservation_id={reservation.id}")
-            return jsonify({
-                'success': False,
-                'message': 'Device usage record not found',
-                'reservation_id': reservation.id
-            }), 404
+        if usage_record:
+            usage_record.actual_end_time = datetime.now()
+            usage_record.status = 'Terminated'
+            db.session.add(usage_record)
 
-        # Update the record
-        usage_record.actual_end_time = datetime.now()
-        usage_record.status = 'Terminated'  # <-- Update status
-        db.session.add(usage_record)
-        
         # Delete the reservation
         db.session.delete(reservation)
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': 'Reservation cancelled',
+            'message': 'Reservation cancelled successfully',
             'reservation_id': reservation_id
         })
+
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Cancellation failed: {str(e)}")
+        current_app.logger.error(f"Cancellation failed for reservation {reservation_id}: {str(e)}")
         return jsonify({
             'success': False,
-            'message': 'Failed to cancel reservation',
+            'message': 'Failed to cancel reservation due to server error',
             'error': str(e)
         }), 500
 
