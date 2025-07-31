@@ -1,4 +1,5 @@
-from flask import Blueprint, abort, current_app, jsonify, render_template, redirect, url_for, flash, request
+from collections import OrderedDict
+from flask import Blueprint, Response, abort, current_app, json, jsonify, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
 from openai import api_type
 import pytz
@@ -321,52 +322,105 @@ def get_reservations():
     """Get all reservations with filtering options"""
     try:
         # Get query parameters
-        device_id = request.args.get('device_id')
-        user_id = request.args.get('user_id')
-        status = request.args.get('status')
-        upcoming = request.args.get('upcoming', 'false').lower() == 'true'
-        
+        device_id = request.args.get('device_id', type=int)
+        user_id = request.args.get('user_id', type=int)
+        show_expired = request.args.get('show_expired', 'false').lower() == 'true'
+        show_upcoming = request.args.get('show_upcoming', 'true').lower() == 'true'
+        show_active = request.args.get('show_active', 'true').lower() == 'true'
+
         # Base query
-        query = Reservation.query
-        
+        query = Reservation.query.join(Device).join(User)
+
         # Apply filters
         if device_id:
-            query = query.filter_by(device_id=device_id)
-        if user_id and (current_user.role == 'admin' or current_user.id == int(user_id)):
-            query = query.filter_by(user_id=user_id)
-        elif not current_user.role == 'admin':
-            query = query.filter_by(user_id=current_user.id)
-            
-        if status:
-            query = query.filter_by(status=status)
-            
-        if upcoming:
-            ist = pytz.timezone('Asia/Kolkata')
-            now = datetime.now(ist)
-            query = query.filter(Reservation.start_time > now)
+            query = query.filter(Reservation.device_id == device_id)
+        if user_id:
+            query = query.filter(Reservation.user_id == user_id)
+
+        # Get current time in IST
+        ist = pytz.timezone('Asia/Kolkata')
+        current_time_ist = datetime.now(ist)
+
+        # Time-based filtering
+        conditions = []
+        if show_expired:
+            conditions.append(Reservation.end_time < current_time_ist)
+        if show_upcoming:
+            conditions.append(Reservation.start_time > current_time_ist)
+        if show_active:
+            conditions.append((Reservation.start_time <= current_time_ist) & 
+                            (Reservation.end_time >= current_time_ist))
         
-        # Execute query
-        reservations = query.order_by(Reservation.start_time).all()
-        
-        # Update status for each reservation
-        for res in reservations:
-            res.update_status()
-        db.session.commit()
-        
-        return jsonify({
+        if conditions:
+            query = query.filter(db.or_(*conditions))
+
+        # Execute query and prepare response
+        reservations = query.all()
+        booked_devices = []
+
+        for reservation in reservations:
+            device = reservation.device
+            user = reservation.user
+
+            # Convert times to IST
+            start_ist = reservation.start_time.astimezone(ist)
+            end_ist = reservation.end_time.astimezone(ist)
+
+            device_info = OrderedDict()
+            device_info['id'] = device.device_id
+            device_info['ct1_ip'] = device.CT1_ip
+            device_info['pulse1_ip'] = device.Pulse1_Ip
+            device_info['pc_ip'] = device.PC_IP
+            device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+
+            booked_devices.append({
+                'id': reservation.id,
+                'device': device_info,
+                'user': {
+                    'id': user.id,
+                },
+                'time': {
+                    'start': start_ist.isoformat(),
+                    'end': end_ist.isoformat(),
+                    'duration_minutes': int((end_ist - start_ist).total_seconds() / 60),
+                    'timezone': 'Asia/Kolkata'
+                },
+                'status': reservation.status,
+                'purpose': reservation.purpose or ''
+            })
+
+        response = {
             'success': True,
-            'count': len(reservations),
-            'reservations': [res.to_dict() for res in reservations]
-        })
-        
+            'data': {
+                'booked_devices': booked_devices,
+                'meta': {
+                    'count': len(booked_devices),
+                    'current_time': current_time_ist.isoformat(),
+                    'filters': {
+                        'device_id': device_id,
+                        'user_id': user_id,
+                        'show_expired': show_expired,
+                        'show_upcoming': show_upcoming,
+                        'show_active': show_active
+                    }
+                }
+            }
+        }
+
+        return Response(
+            json.dumps(response, ensure_ascii=False, sort_keys=False),
+            mimetype='application/json'
+        )
+
     except Exception as e:
-        current_app.logger.error(f"Error getting reservations: {str(e)}")
+        current_app.logger.error(f"Error fetching reservations: {str(e)}")
         return jsonify({
             'success': False,
-            'message': 'Failed to get reservations'
+            'message': 'Failed to fetch reservations'
         }), 500
+    
 
-@reservation_bp.route('/api/reservations', methods=['POST'])
+'''@reservation_bp.route('/api/reservations', methods=['POST'])
 @login_required
 def create_reservation():
     """Create a new reservation"""
@@ -476,8 +530,147 @@ def create_reservation():
             'success': False,
             'message': 'Failed to create reservation'
         }), 500
-
+'''
     
+@reservation_bp.route('/api/reservations', methods=['POST'])
+@login_required
+def create_reservation():
+    """Create a new reservation"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['device_id', 'start_time', 'end_time']
+        if not all(field in data for field in required_fields):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+            
+        # Check device exists
+        device = Device.query.get(data['device_id'])
+        if not device:
+            return jsonify({
+                'success': False,
+                'message': 'Device not found'
+            }), 404
+            
+        # Parse times with IST timezone
+        ist = pytz.timezone('Asia/Kolkata')
+        try:
+            start_time = datetime.fromisoformat(data['start_time'])
+            end_time = datetime.fromisoformat(data['end_time'])
+            
+            # Localize to IST
+            if start_time.tzinfo is None:
+                start_time = ist.localize(start_time)
+            else:
+                start_time = start_time.astimezone(ist)
+                
+            if end_time.tzinfo is None:
+                end_time = ist.localize(end_time)
+            else:
+                end_time = end_time.astimezone(ist)
+                
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid datetime format'
+            }), 400
+            
+        # Validate times
+        now = datetime.now(ist)
+        if start_time < now:
+            return jsonify({
+                'success': False,
+                'message': 'Start time cannot be in the past'
+            }), 400
+            
+        if end_time <= start_time:
+            return jsonify({
+                'success': False,
+                'message': 'End time must be after start time'
+            }), 400
+            
+        # Check for conflicts
+        conflict = Reservation.query.filter(
+            Reservation.device_id == data['device_id'],
+            Reservation.start_time < end_time.replace(tzinfo=None),
+            Reservation.end_time > start_time.replace(tzinfo=None)
+        ).first()
+        
+        if conflict:
+            return jsonify({
+                'success': False,
+                'message': 'Device already reserved for this time period'
+            }), 409
+            
+        # Create reservation
+        reservation = Reservation(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            start_time=start_time,
+            end_time=end_time,
+            purpose=data.get('purpose', ''),
+            status='upcoming'
+        )
+        db.session.add(reservation)
+        db.session.flush()
+
+        usage_record = DeviceUsage(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            reservation_id=reservation.id,
+            actual_start_time=start_time.replace(tzinfo=None),
+            actual_end_time=end_time.replace(tzinfo=None),
+            status='upcoming',
+            ip_address=request.remote_addr
+        )
+        db.session.add(usage_record)
+        db.session.commit()
+        
+        # Prepare response with IST times and device info
+        start_ist = reservation.start_time.astimezone(ist)
+        end_ist = reservation.end_time.astimezone(ist)
+        
+        device_info = OrderedDict()
+        device_info['id'] = device.device_id
+        device_info['ct1_ip'] = device.CT1_ip
+        device_info['pulse1_ip'] = device.Pulse1_Ip
+        device_info['pc_ip'] = device.PC_IP
+        device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+        
+        response = {
+            'success': True,
+            'message': 'Reservation created',
+            'data': {
+                'id': reservation.id,
+                'device': device_info,
+                'user': {
+                    'id': current_user.id,
+                },
+                'time': {
+                    'start': start_ist.isoformat(),
+                    'end': end_ist.isoformat(),
+                    'duration_minutes': int((end_ist - start_ist).total_seconds() / 60),
+                    'timezone': 'Asia/Kolkata'
+                },
+                'status': reservation.status
+            }
+        }
+        
+        return Response(
+            json.dumps(response, ensure_ascii=False, sort_keys=False),
+            mimetype='application/json'
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating reservation: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to create reservation'
+        }), 500
 
 @reservation_bp.route('/reservation/cancel/<int:reservation_id>', methods=['POST'])
 @login_required
