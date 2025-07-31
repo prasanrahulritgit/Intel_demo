@@ -276,7 +276,7 @@ def get_booked_devices():
             device_info['pc_ip'] = device.PC_IP
             device_info['rutomatrix_ip'] = device.Rutomatrix_ip
  
-            booked_devices.append({
+            booked_devices.append({   #hello
                 'id': reservation.id,
                 'device': device_info,
                 'user': {
