@@ -1,9 +1,12 @@
-from flask import Blueprint, abort, current_app, jsonify, render_template, redirect, url_for, flash, request
+from flask import Blueprint, Response, abort, current_app, json, jsonify, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
 import pytz
 from sqlalchemy import delete, exists
 from models import DeviceUsage, Reservation, Device, User, db
 from datetime import datetime, timezone
+from sqlalchemy.exc import SQLAlchemyError
+from collections import OrderedDict
+import json
 
 reservation_bp = Blueprint('reservation', __name__)
 
@@ -84,18 +87,6 @@ def get_devices_with_availability():
             'success': False,
             'message': 'Failed to check device availability'
         }), 500
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -211,20 +202,19 @@ def get_devices():
 
 
 @reservation_bp.route('/api/booked-devices', methods=['GET'])
-@login_required
 def get_booked_devices():
     """Get all currently booked devices with their reservation details"""
     try:
         ist = pytz.timezone('Asia/Kolkata')
         current_time_ist = datetime.now(ist)
-        
+       
         # Get query parameters for filtering
         device_id = request.args.get('device_id')
         user_id = request.args.get('user_id')
         show_expired = request.args.get('show_expired', 'false').lower() == 'true'
         show_upcoming = request.args.get('show_upcoming', 'true').lower() == 'true'
         show_active = request.args.get('show_active', 'true').lower() == 'true'
-        
+       
         # Base query with device and user details
         query = db.session.query(
             Reservation,
@@ -237,21 +227,7 @@ def get_booked_devices():
         ).order_by(
             Reservation.start_time.asc()
         )
-        
-        # Apply filters
-        if device_id:
-            query = query.filter(Reservation.device_id == device_id)
-            
-        if user_id:
-            if current_user.role != 'admin' and current_user.id != int(user_id):
-                return jsonify({
-                    'success': False,
-                    'message': 'Unauthorized to view other users reservations'
-                }), 403
-            query = query.filter(Reservation.user_id == user_id)
-        elif current_user.role != 'admin':
-            query = query.filter(Reservation.user_id == current_user.id)
-        
+       
         # Apply status filters
         status_filters = []
         if show_active:
@@ -263,12 +239,12 @@ def get_booked_devices():
             status_filters.append(Reservation.start_time > current_time_ist)
         if show_expired:
             status_filters.append(Reservation.end_time < current_time_ist)
-        
+       
         if status_filters:
             query = query.filter(db.or_(*status_filters))
-        
+       
         results = query.all()
-        
+       
         # Format the response
         booked_devices = []
         for reservation, device, user in results:
@@ -280,27 +256,131 @@ def get_booked_devices():
                 ip_type = 'pulse'
             elif 'ct' in device.device_id.lower():
                 ip_type = 'ct'
-            
+           
             ip_address = {
                 'pc': device.PC_IP,
                 'rutomatrix': device.Rutomatrix_ip,
                 'pulse': device.Pulse1_Ip,
                 'ct': device.CT1_ip
             }.get(ip_type, None)
-            
+           
             # Convert times to IST
             start_ist = reservation.start_time.astimezone(ist)
             end_ist = reservation.end_time.astimezone(ist)
-            
+ 
+            device_info = OrderedDict()
+            device_info['id'] = device.device_id
+            device_info['ct1_ip'] = device.CT1_ip
+            device_info['pulse1_ip'] = device.Pulse1_Ip
+            device_info['pc_ip'] = device.PC_IP
+            device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+ 
+            booked_devices.append({   #hello
+                'id': reservation.id,
+                'device': device_info,
+                'user': {
+                    'id': user.id,
+                    'role': current_user.role if current_user.is_authenticated else None
+                },
+                'time': {
+                    'start': start_ist.isoformat(),
+                    'end': end_ist.isoformat(),
+                    'duration_minutes': int((end_ist - start_ist).total_seconds() / 60),
+                    'timezone': 'Asia/Kolkata'
+                },
+                'status': reservation.status,
+                'purpose': reservation.purpose or ''
+            })
+       
+        response = {
+            'success': True,
+            'data': {
+                'booked_devices': booked_devices,
+                'meta': {
+                'count': len(booked_devices),
+                'current_time': current_time_ist.isoformat(),
+                'filters': {
+                    'device_id': device_id,
+                    'user_id': user_id,
+                    'show_expired': show_expired,
+                    'show_upcoming': show_upcoming,
+                    'show_active': show_active
+                }
+            }
+        }
+    }
+ 
+        return Response(json.dumps(response, ensure_ascii=False, sort_keys=False), mimetype='application/json')
+       
+    except Exception as e:
+        current_app.logger.error(f"Failed to fetch booked devices: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': 'Failed to fetch booked devices',
+            'error': str(e)
+        }), 500
+    
+
+@reservation_bp.route('/api/reservations', methods=['GET'])
+@login_required
+def get_reservations():
+    """Get all reservations with filtering options"""
+    try:
+        # Get query parameters
+        device_id = request.args.get('device_id', type=int)
+        user_id = request.args.get('user_id', type=int)
+        show_expired = request.args.get('show_expired', 'false').lower() == 'true'
+        show_upcoming = request.args.get('show_upcoming', 'true').lower() == 'true'
+        show_active = request.args.get('show_active', 'true').lower() == 'true'
+
+        # Base query
+        query = Reservation.query.join(Device).join(User)
+
+        # Apply filters
+        if device_id:
+            query = query.filter(Reservation.device_id == device_id)
+        if user_id:
+            query = query.filter(Reservation.user_id == user_id)
+
+        # Get current time in IST
+        ist = pytz.timezone('Asia/Kolkata')
+        current_time_ist = datetime.now(ist)
+
+        # Time-based filtering
+        conditions = []
+        if show_expired:
+            conditions.append(Reservation.end_time < current_time_ist)
+        if show_upcoming:
+            conditions.append(Reservation.start_time > current_time_ist)
+        if show_active:
+            conditions.append((Reservation.start_time <= current_time_ist) & 
+                            (Reservation.end_time >= current_time_ist))
+        
+        if conditions:
+            query = query.filter(db.or_(*conditions))
+
+        # Execute query and prepare response
+        reservations = query.all()
+        booked_devices = []
+
+        for reservation in reservations:
+            device = reservation.device
+            user = reservation.user
+
+            # Convert times to IST
+            start_ist = reservation.start_time.astimezone(ist)
+            end_ist = reservation.end_time.astimezone(ist)
+
+            device_info = OrderedDict()
+            device_info['id'] = device.device_id
+            device_info['ct1_ip'] = device.CT1_ip
+            device_info['pulse1_ip'] = device.Pulse1_Ip
+            device_info['pc_ip'] = device.PC_IP
+            device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+
             booked_devices.append({
                 'id': reservation.id,
-                'device': {
-                    'id': device.device_id,
-                    'pc_ip': device.PC_IP,
-                    'rutomatrix_ip': device.Rutomatrix_ip,
-                    'pulse1_ip': device.Pulse1_Ip,
-                    'ct1_ip': device.CT1_ip,
-                },
+                'device': device_info,
                 'user': {
                     'id': user.id,
                 },
@@ -311,16 +391,10 @@ def get_booked_devices():
                     'timezone': 'Asia/Kolkata'
                 },
                 'status': reservation.status,
-                'actions': {
-                    'can_cancel': reservation.can_cancel(current_user),
-                    'can_modify': (current_user.role == 'admin' or 
-                                 (reservation.user_id == current_user.id and 
-                                  reservation.status == 'upcoming'))
-                },
                 'purpose': reservation.purpose or ''
             })
-        
-        return jsonify({
+
+        response = {
             'success': True,
             'data': {
                 'booked_devices': booked_devices,
@@ -336,70 +410,22 @@ def get_booked_devices():
                     }
                 }
             }
-        })
-        
+        }
+
+        return Response(
+            json.dumps(response, ensure_ascii=False, sort_keys=False),
+            mimetype='application/json'
+        )
+
     except Exception as e:
-        current_app.logger.error(f"Failed to fetch booked devices: {str(e)}", exc_info=True)
+        current_app.logger.error(f"Error fetching reservations: {str(e)}")
         return jsonify({
             'success': False,
-            'message': 'Failed to fetch booked devices',
-            'error': str(e)
+            'message': 'Failed to fetch reservations'
         }), 500
     
 
-
-@reservation_bp.route('/api/reservations', methods=['GET'])
-@login_required
-def get_reservations():
-    """Get all reservations with filtering options"""
-    try:
-        # Get query parameters
-        device_id = request.args.get('device_id')
-        user_id = request.args.get('user_id')
-        status = request.args.get('status')
-        upcoming = request.args.get('upcoming', 'false').lower() == 'true'
-        
-        # Base query
-        query = Reservation.query
-        
-        # Apply filters
-        if device_id:
-            query = query.filter_by(device_id=device_id)
-        if user_id and (current_user.role == 'admin' or current_user.id == int(user_id)):
-            query = query.filter_by(user_id=user_id)
-        elif not current_user.role == 'admin':
-            query = query.filter_by(user_id=current_user.id)
-            
-        if status:
-            query = query.filter_by(status=status)
-            
-        if upcoming:
-            ist = pytz.timezone('Asia/Kolkata')
-            now = datetime.now(ist)
-            query = query.filter(Reservation.start_time > now)
-        
-        # Execute query
-        reservations = query.order_by(Reservation.start_time).all()
-        
-        # Update status for each reservation
-        for res in reservations:
-            res.update_status()
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'count': len(reservations),
-            'reservations': [res.to_dict() for res in reservations]
-        })
-        
-    except Exception as e:
-        current_app.logger.error(f"Error getting reservations: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'Failed to get reservations'
-        }), 500
-
-@reservation_bp.route('/api/reservations', methods=['POST'])
+'''@reservation_bp.route('/api/reservations', methods=['POST'])
 @login_required
 def create_reservation():
     """Create a new reservation"""
@@ -479,10 +505,21 @@ def create_reservation():
             start_time=start_time,
             end_time=end_time,
             purpose=data.get('purpose', ''),
-            status='upcoming'
+            status='upcoming'  # <-- Reservation status
         )
-        
         db.session.add(reservation)
+        db.session.flush()
+
+        usage_record = DeviceUsage(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            reservation_id=reservation.id,  # <-- Must match
+            actual_start_time=start_time.replace(tzinfo=None),
+            actual_end_time=end_time.replace(tzinfo=None),
+            status='upcoming',  # <-- Critical change
+            ip_address=request.remote_addr
+        )
+        db.session.add(usage_record)
         db.session.commit()
         
         return jsonify({
@@ -498,54 +535,189 @@ def create_reservation():
             'success': False,
             'message': 'Failed to create reservation'
         }), 500
-
+'''
     
+@reservation_bp.route('/api/reservations', methods=['POST'])
+@login_required
+def create_reservation():
+    """Create a new reservation"""
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['device_id', 'start_time', 'end_time']
+        if not all(field in data for field in required_fields):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+            
+        # Check device exists
+        device = Device.query.get(data['device_id'])
+        if not device:
+            return jsonify({
+                'success': False,
+                'message': 'Device not found'
+            }), 404
+            
+        # Parse times with IST timezone
+        ist = pytz.timezone('Asia/Kolkata')
+        try:
+            start_time = datetime.fromisoformat(data['start_time'])
+            end_time = datetime.fromisoformat(data['end_time'])
+            
+            # Localize to IST
+            if start_time.tzinfo is None:
+                start_time = ist.localize(start_time)
+            else:
+                start_time = start_time.astimezone(ist)
+                
+            if end_time.tzinfo is None:
+                end_time = ist.localize(end_time)
+            else:
+                end_time = end_time.astimezone(ist)
+                
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid datetime format'
+            }), 400
+            
+        # Validate times
+        now = datetime.now(ist)
+        if start_time < now:
+            return jsonify({
+                'success': False,
+                'message': 'Start time cannot be in the past'
+            }), 400
+            
+        if end_time <= start_time:
+            return jsonify({
+                'success': False,
+                'message': 'End time must be after start time'
+            }), 400
+            
+        # Check for conflicts
+        conflict = Reservation.query.filter(
+            Reservation.device_id == data['device_id'],
+            Reservation.start_time < end_time.replace(tzinfo=None),
+            Reservation.end_time > start_time.replace(tzinfo=None)
+        ).first()
+        
+        if conflict:
+            return jsonify({
+                'success': False,
+                'message': 'Device already reserved for this time period'
+            }), 409
+            
+        # Create reservation
+        reservation = Reservation(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            start_time=start_time,
+            end_time=end_time,
+            purpose=data.get('purpose', ''),
+            status='upcoming'
+        )
+        db.session.add(reservation)
+        db.session.flush()
+
+        usage_record = DeviceUsage(
+            device_id=data['device_id'],
+            user_id=current_user.id,
+            reservation_id=reservation.id,
+            actual_start_time=start_time.replace(tzinfo=None),
+            actual_end_time=end_time.replace(tzinfo=None),
+            status='upcoming',
+            ip_address=request.remote_addr
+        )
+        db.session.add(usage_record)
+        db.session.commit()
+        
+        # Prepare response with IST times and device info
+        start_ist = reservation.start_time.astimezone(ist)
+        end_ist = reservation.end_time.astimezone(ist)
+        
+        device_info = OrderedDict()
+        device_info['id'] = device.device_id
+        device_info['ct1_ip'] = device.CT1_ip
+        device_info['pulse1_ip'] = device.Pulse1_Ip
+        device_info['pc_ip'] = device.PC_IP
+        device_info['rutomatrix_ip'] = device.Rutomatrix_ip
+        
+        response = {
+            'success': True,
+            'message': 'Reservation created',
+            'data': {
+                'id': reservation.id,
+                'device': device_info,
+                'user': {
+                    'id': current_user.id,
+                },
+                'time': {
+                    'start': start_ist.isoformat(),
+                    'end': end_ist.isoformat(),
+                    'duration_minutes': int((end_ist - start_ist).total_seconds() / 60),
+                    'timezone': 'Asia/Kolkata'
+                },
+                'status': reservation.status
+            }
+        }
+        
+        return Response(
+            json.dumps(response, ensure_ascii=False, sort_keys=False),
+            mimetype='application/json'
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating reservation: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'Failed to create reservation'
+        }), 500
 
 @reservation_bp.route('/reservation/cancel/<int:reservation_id>', methods=['POST'])
 @login_required
 def cancel_reservation(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     
+    # Authorization check
     if reservation.user_id != current_user.id and not current_user.is_admin:
         return jsonify({
             'success': False,
-            'message': 'Unauthorized: You can only cancel your own reservations',
-            'code': 403,
-            'reservation_id': reservation_id
+            'message': 'Unauthorized: You can only cancel your own reservations'
         }), 403
 
     try:
-        # Create usage record before deletion
-        usage_record = DeviceUsage(
-            device_id=reservation.device_id,
-            user_id=reservation.user_id,
-            reservation_id=reservation.id,
-            actual_start_time=reservation.start_time,
-            actual_end_time=datetime.now(),
-            status='cancelled',
-            ip_address=request.remote_addr
-        )
-        db.session.add(usage_record)
+        # Start transaction
+        db.session.begin_nested()
+
+        # Update DeviceUsage record if exists
+        usage_record = DeviceUsage.query.filter_by(reservation_id=reservation.id).first()
         
+        if usage_record:
+            usage_record.actual_end_time = datetime.now()
+            usage_record.status = 'Terminated'
+            db.session.add(usage_record)
+
         # Delete the reservation
         db.session.delete(reservation)
         db.session.commit()
-        
-        # Return the deleted reservation ID for frontend to update
+
         return jsonify({
+            'success': True,
             'message': 'Reservation cancelled successfully',
-            'reservation_id': reservation_id,
+            'reservation_id': reservation_id
         })
-    
+
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Cancellation failed: {str(e)}")
+        current_app.logger.error(f"Cancellation failed for reservation {reservation_id}: {str(e)}")
         return jsonify({
             'success': False,
-            'message': 'Failed to cancel reservation',
-            'code': 500,
-            'error': str(e),
-            'reservation_id': reservation_id
+            'message': 'Failed to cancel reservation due to server error',
+            'error': str(e)
         }), 500
 
 

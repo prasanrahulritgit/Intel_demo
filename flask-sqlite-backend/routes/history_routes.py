@@ -34,6 +34,7 @@ def index():
         users=users,
         current_user=current_user
     )
+
 @history_bp.route('/update-usage-status/<int:record_id>', methods=['PATCH'])
 @login_required
 def update_usage_status(record_id):
