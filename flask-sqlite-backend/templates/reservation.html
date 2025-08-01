@@ -37,11 +37,10 @@
         border-radius: 8px;
     }
 
-    .device-card.selected {
-    border: 2px solid #28a745 !important;
-    background-color: rgba(40, 167, 69, 0.1) !important;
-    transform: scale(1.02);
-    }
+        .device-card.selected {
+            border: 2px solid var(--accent-orange) !important;
+            box-shadow: 0 0 10px rgba(255, 106, 0, 0.3);
+        }
 
     .card-header {
         background-color: var(--table-header-bg);
@@ -1462,23 +1461,23 @@ function updateDeviceDisplay() {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+                console.log('response',response)
                 const result = await response.json();
-                
+                console.log('result',result)
                 // Validate response structure
                 if (!result || !result.data || !result.data.booked_devices) {
                     throw new Error('Invalid response structure - missing booked_devices');
                 }
                 
                 const data = result.data;
-                
+                console.log('Loaded booked devices:', data);
                 // Ensure booked_devices is an array
                 if (!Array.isArray(data.booked_devices)) {
                     throw new Error('booked_devices is not an array');
                 }
                 
                 bookedDevicesData = data.booked_devices;
-                
+                console.log('Booked devices data:', bookedDevicesData);
                 // Create device reservation map with proper checks
                 const deviceReservationMap = {};
                 
@@ -1507,7 +1506,7 @@ function updateDeviceDisplay() {
                         };
                     }
                 });
-                
+                console.log('deviceReservationMap', typeof deviceReservationMap)
                 renderBookedDevices(deviceReservationMap);
                 return true;
             } catch (error) {
@@ -1533,7 +1532,9 @@ function updateDeviceDisplay() {
             }
             
             for (const deviceId in deviceReservationMap) {
+                console.log('device is',deviceId)
                 for (const reservationId in deviceReservationMap[deviceId]) {
+                    console.log('reservationId', reservationId)
                     const reservation = deviceReservationMap[deviceId][reservationId];
                     const now = new Date();
                     const startTime = new Date(reservation.time.start);
@@ -1583,7 +1584,12 @@ function updateDeviceDisplay() {
                     <!-- JavaScript version (unchanged) -->
                     <!-- JavaScript version (unchanged) -->
                     <div class="booked-device-card-footer">
-                        ${reservation.actions.can_cancel ? `
+                        ${reservation.user.role === 'admin' ? `
+                        <button class="btn btn-sm btn-outline-danger cancel-btn"
+                            title="Cancel Reservation"
+                            data-reservation-id="${reservation.id}">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
                         ` : ''}
                     </div>
                     `;
@@ -1722,22 +1728,18 @@ function showToast(message, type = 'info') {
 
 
 
-        // Function to handle device selection (highlighting only)
         function selectDevice(device) {
-            // Remove highlight from all devices first
-            document.querySelectorAll('.device-item').forEach(item => {
-                item.classList.remove('selected');
+            // Remove selection from all other cards first
+            document.querySelectorAll('.device-card').forEach(card => {
+                card.classList.remove('selected');
             });
-            
-            // Highlight the newly selected device
-            const deviceElement = document.querySelector(`.device-item[data-device-id="${device.device_id}"]`);
+            // Highlight the newly selected device with orange border
+            const deviceElement = document.querySelector(`.device-card[data-device-id="${device.device_id}"]`);
             if (deviceElement) {
                 deviceElement.classList.add('selected');
             }
-            
             // Store the selected device ID
             selectedDeviceId = device.device_id;
-            
             // Enable the confirm button since we have a selection
             document.getElementById('confirmDeviceSelectionBtn').disabled = false;
         }
@@ -2258,3 +2260,4 @@ function showToast(message, type = 'info') {
     </script>
 </body>
 </html>
+

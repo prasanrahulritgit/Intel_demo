@@ -426,117 +426,6 @@ def get_reservations():
         }), 500
     
 
-'''@reservation_bp.route('/api/reservations', methods=['POST'])
-@login_required
-def create_reservation():
-    """Create a new reservation"""
-    try:
-        data = request.get_json()
-        
-        # Validate required fields
-        required_fields = ['device_id', 'start_time', 'end_time']
-        if not all(field in data for field in required_fields):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
-            
-        # Check device exists
-        device = Device.query.get(data['device_id'])
-        if not device:
-            return jsonify({
-                'success': False,
-                'message': 'Device not found'
-            }), 404
-            
-        # Parse times
-        ist = pytz.timezone('Asia/Kolkata')
-        try:
-            start_time = datetime.fromisoformat(data['start_time'])
-            end_time = datetime.fromisoformat(data['end_time'])
-            
-            # Localize to IST
-            if start_time.tzinfo is None:
-                start_time = ist.localize(start_time)
-            else:
-                start_time = start_time.astimezone(ist)
-                
-            if end_time.tzinfo is None:
-                end_time = ist.localize(end_time)
-            else:
-                end_time = end_time.astimezone(ist)
-                
-        except ValueError:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid datetime format'
-            }), 400
-            
-        # Validate times
-        now = datetime.now(ist)
-        if start_time < now:
-            return jsonify({
-                'success': False,
-                'message': 'Start time cannot be in the past'
-            }), 400
-            
-        if end_time <= start_time:
-            return jsonify({
-                'success': False,
-                'message': 'End time must be after start time'
-            }), 400
-            
-
-        conflict = Reservation.query.filter(
-            Reservation.device_id == data['device_id'],
-            Reservation.start_time < end_time.replace(tzinfo=None),
-            Reservation.end_time > start_time.replace(tzinfo=None)
-        ).first()
-        
-        if conflict:
-            return jsonify({
-                'success': False,
-                'message': 'Device already reserved for this time period'
-            }), 409
-            
-        # Create reservation
-        reservation = Reservation(
-            device_id=data['device_id'],
-            user_id=current_user.id,
-            start_time=start_time,
-            end_time=end_time,
-            purpose=data.get('purpose', ''),
-            status='upcoming'  # <-- Reservation status
-        )
-        db.session.add(reservation)
-        db.session.flush()
-
-        usage_record = DeviceUsage(
-            device_id=data['device_id'],
-            user_id=current_user.id,
-            reservation_id=reservation.id,  # <-- Must match
-            actual_start_time=start_time.replace(tzinfo=None),
-            actual_end_time=end_time.replace(tzinfo=None),
-            status='upcoming',  # <-- Critical change
-            ip_address=request.remote_addr
-        )
-        db.session.add(usage_record)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Reservation created',
-            'reservation': reservation.to_dict()
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error creating reservation: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': 'Failed to create reservation'
-        }), 500
-'''
     
 @reservation_bp.route('/api/reservations', methods=['POST'])
 @login_required
@@ -634,7 +523,7 @@ def create_reservation():
         )
         db.session.add(usage_record)
         db.session.commit()
-        
+       
         # Prepare response with IST times and device info
         start_ist = reservation.start_time.astimezone(ist)
         end_ist = reservation.end_time.astimezone(ist)
@@ -664,6 +553,7 @@ def create_reservation():
                 'status': reservation.status
             }
         }
+
         
         return Response(
             json.dumps(response, ensure_ascii=False, sort_keys=False),
@@ -677,6 +567,8 @@ def create_reservation():
             'success': False,
             'message': 'Failed to create reservation'
         }), 500
+
+
 
 @reservation_bp.route('/reservation/cancel/<int:reservation_id>', methods=['POST'])
 @login_required
