@@ -1,6 +1,5 @@
 from flask import Blueprint, Response, abort, current_app, json, jsonify, render_template, redirect, url_for, flash, request
 from flask_login import current_user, login_required
-from openai import api_type
 import pytz
 from sqlalchemy import delete, exists
 from models import DeviceUsage, Reservation, Device, User, db
@@ -281,7 +280,7 @@ def get_booked_devices():
                 'device': device_info,
                 'user': {
                     'id': user.id,
-                    'role':current_user.role
+                    'role': current_user.role if current_user.is_authenticated else None
                 },
                 'time': {
                     'start': start_ist.isoformat(),
