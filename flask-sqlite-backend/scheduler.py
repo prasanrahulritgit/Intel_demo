@@ -1,6 +1,6 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-from models import db, Reservation
+from models import DeviceUsage, db, Reservation
 from flask import app, current_app
 import pytz
 
@@ -59,3 +59,23 @@ scheduler.add_job(
     minutes=1,
     id='expired_cleanup'
 )
+
+def update_statuses():
+    with app.app_context():
+        try:
+            # Update reservation statuses
+            reservations = Reservation.query.all()
+            for res in reservations:
+                res.update_status()
+                db.session.add(res)
+            
+            # Update usage statuses
+            usages = DeviceUsage.query.all()
+            for usage in usages:
+                usage.update_status()
+                db.session.add(usage)
+                
+            db.session.commit()
+        except Exception as e:
+            current_app.logger.error(f"Error updating statuses: {str(e)}")
+            db.session.rollback()

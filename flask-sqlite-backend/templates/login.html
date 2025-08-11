@@ -107,12 +107,13 @@
         font-size: 0.75rem;
         color: #1281d6;
     }
+
     .header h2 {
         color: #ffffff;
         font-size: 1.8rem;
         font-weight: normal;
         margin-top: 0;
-        text-align: center;  /* Add this line to center the heading */
+        text-align: center;
     }
 
     .btn-login {
@@ -136,6 +137,37 @@
 
     .btn-login i {
         margin-left: 8px;
+    }
+
+    .alert {
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .alert-danger {
+        background-color: #ff4444;
+        color: white;
+    }
+
+    .alert-success {
+        background-color: #00C851;
+        color: white;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
     }
 
     @media (max-width: 768px) {
@@ -163,6 +195,15 @@
     <div class="header">
         <h2>Sign In</h2>
     </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                <i data-lucide="{{ 'alert-circle' if category == 'error' or category == 'danger' else 'check-circle' }}"></i>
+                <span style="margin-left: 8px;">{{ message }}</span>
+            </div>
+        {% endfor %}
+    {% endwith %}
 
     <form method="POST" action="">
         {{ form.hidden_tag() }}
@@ -194,5 +235,16 @@
 
 <script>
     lucide.createIcons();
+    
+    // Auto-hide flash messages after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            }, 5000);
+        });
+    });
 </script>
 {% endblock %}

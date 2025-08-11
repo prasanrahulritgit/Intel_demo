@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Device Reservation</title>
+    <title>Device Reservation</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -37,11 +37,10 @@
         border-radius: 8px;
     }
 
-    .device-card.selected {
-    border: 2px solid #28a745 !important;
-    background-color: rgba(40, 167, 69, 0.1) !important;
-    transform: scale(1.02);
-    }
+        .device-card.selected {
+            border: 2px solid var(--accent-orange) !important;
+            box-shadow: 0 0 10px rgba(255, 106, 0, 0.3);
+        }
 
     .card-header {
         background-color: var(--table-header-bg);
@@ -841,9 +840,15 @@
 </head>
 <body>
     <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Admin Device Reservation</h1>
-        </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Device Reservation</h1>
+        <!-- Logout Button -->
+        {% if current_user.is_authenticated %}
+        <a href="http://localhost:3000/auth" class="btn btn-outline-danger">
+            <i class="fas fa-sign-out-alt me-2"></i> Logout
+        </a>
+        {% endif %}
+    </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -1145,98 +1150,106 @@
     const cancelToast = document.getElementById('cancelToast');
     const toastMessage = document.getElementById('toastMessage');
 
-    // Initialize Flatpickr for datetime inputs
-    const startTimePicker = flatpickr("#start_time", {
-        enableTime: true,
-        dateFormat: "Y-m-d H:i",
-        minDate: "today",
-        time_24hr: true,
-        minuteIncrement: 30,
-        defaultHour: new Date().getHours(),
-        defaultMinute: 0,
-        utc: true,
-        onReady: function(selectedDates, dateStr, instance) {
-            instance.element.placeholder = "Select start time (hh:mm)";
-        }
-    });
-
-    const endTimePicker = flatpickr("#end_time", {
-        enableTime: true,
-        dateFormat: "Y-m-d H:i",
-        minDate: "today",
-        time_24hr: true,
-        minuteIncrement: 30,
-        defaultHour: new Date().getHours() + 1,
-        defaultMinute: 0,
-        utc: true,
-        onReady: function(selectedDates, dateStr, instance) {
-            instance.element.placeholder = "Select end time (hh:mm)";
-        }
-    });
-
-    // Quick select buttons for time
-    document.querySelectorAll('.quick-select-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const minutes = parseInt(this.getAttribute('data-minutes'));
-            const isStartTime = this.closest('.col-md-6').querySelector('label').textContent.includes('Start');
-            const inputId = isStartTime ? 'start_time' : 'end_time';
-            const input = document.getElementById(inputId);
-            const fp = input._flatpickr;
-            
-            if (isStartTime) {
-                const newDate = new Date(Date.now() + minutes * 60 * 1000);
-                fp.setDate(newDate);
-                startTime = fp.input.value;
-            } else {
-                let baseDate;
-                if (startTime) {
-                    baseDate = new Date(startTime);
-                } else {
-                    baseDate = new Date();
-                    document.getElementById('start_time')._flatpickr.setDate(baseDate);
-                    startTime = document.getElementById('start_time').value;
+            // Initialize Flatpickr for datetime inputs
+            const startTimePicker = flatpickr("#start_time", {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                minDate: "today",
+                time_24hr: true,
+                minuteIncrement: 1,
+                defaultHour: new Date().getHours(),
+                defaultMinute: 0,
+                utc: true,
+                onReady: function(selectedDates, dateStr, instance) {
+                    instance.element.placeholder = "Select start time (hh:mm)";
+                },
+                onChange: function(selectedDates, dateStr) {
+                    // Update the end time minimum date when start time changes
+                    endTimePicker.set('minDate', dateStr);
+                    // If end time is before new start time, reset it
+                    if (endTimePicker.selectedDates[0] && endTimePicker.selectedDates[0] <= selectedDates[0]) {
+                        const newEndDate = new Date(selectedDates[0].getTime() + 60 * 60 * 1000); // +1 hour
+                        endTimePicker.setDate(newEndDate);
+                    }
                 }
-                const newDate = new Date(baseDate.getTime() + minutes * 60 * 1000);
-                fp.setDate(newDate);
-            }
-            endTime = document.getElementById('end_time')._flatpickr.input.value;
-        });
-    });
+            });
 
-        bookReservationBtn.addEventListener('click', async function() {
-            startTime = document.getElementById('start_time').value;
-            endTime = document.getElementById('end_time').value;
-            
-            if (!startTime || !endTime) {
-                showToast('Please select both start and end times');
-                return;
-            }
-            
-            const now = new Date();
-            const selectedStart = new Date(startTime);
-            
-            if (selectedStart < now) {
-                showToast('Cannot book in past time. Please select future time slots.');
-                return;
-            }
-            
-            if (new Date(endTime) <= selectedStart) {
-                showToast('End time must be after start time');
-                return;
-            }
-            
-            deviceSelectionOverlay.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            
-            try {
-                // Load both available and booked devices
-                await Promise.all([loadDevices(), loadBookedDevices()]);
-            } catch (error) {
-                console.error('Error loading devices:', error);
-                showToast('Failed to load device data', 'error');
-            }
-        });
+            const endTimePicker = flatpickr("#end_time", {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                minDate: "today",
+                time_24hr: true,
+                minuteIncrement: 1,
+                defaultHour: new Date().getHours() + 1,
+                defaultMinute: 0,
+                utc: true,
+                onReady: function(selectedDates, dateStr, instance) {
+                    instance.element.placeholder = "Select end time (hh:mm)";
+                }
+            });
 
+            // Quick select buttons for time
+            document.querySelectorAll('.quick-select-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const minutes = parseInt(this.getAttribute('data-minutes'));
+                    const isStartTime = this.closest('.col-md-6').querySelector('label').textContent.includes('Start');
+                    const inputId = isStartTime ? 'start_time' : 'end_time';
+                    const fp = isStartTime ? startTimePicker : endTimePicker;
+                    
+                    if (isStartTime) {
+                        const newDate = new Date(Date.now() + minutes * 60 * 1000);
+                        fp.setDate(newDate);
+                        // Update end time minimum date
+                        endTimePicker.set('minDate', fp.selectedDates[0]);
+                    } else {
+                        let baseDate;
+                        if (startTimePicker.selectedDates.length > 0) {
+                            baseDate = startTimePicker.selectedDates[0];
+                        } else {
+                            // If no start time selected, set both start and end times
+                            baseDate = new Date();
+                            startTimePicker.setDate(baseDate);
+                            baseDate = startTimePicker.selectedDates[0];
+                        }
+                        const newDate = new Date(baseDate.getTime() + minutes * 60 * 1000);
+                        fp.setDate(newDate);
+                    }
+                });
+            });
+
+            bookReservationBtn.addEventListener('click', async function() {
+                const startTime = document.getElementById('start_time').value;
+                const endTime = document.getElementById('end_time').value;
+                
+                if (!startTime || !endTime) {
+                    showToast('Please select both start and end times');
+                    return;
+                }
+                
+                const now = new Date();
+                const selectedStart = new Date(startTime);
+                
+                if (selectedStart < now) {
+                    showToast('Cannot book in past time. Please select future time slots.');
+                    return;
+                }
+                
+                if (new Date(endTime) <= selectedStart) {
+                    showToast('End time must be after start time');
+                    return;
+                }
+                
+                deviceSelectionOverlay.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+                
+                try {
+                    // Load both available and booked devices
+                    await Promise.all([loadDevices(), loadBookedDevices()]);
+                } catch (error) {
+                    console.error('Error loading devices:', error);
+                    showToast('Failed to load device data', 'error');
+                }
+            });
                     // Single event listener for the confirm button
             document.getElementById('confirmDeviceSelectionBtn').addEventListener('click', async function() {
                 if (!selectedDeviceId) {
@@ -1462,23 +1475,23 @@ function updateDeviceDisplay() {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+                console.log('response',response)
                 const result = await response.json();
-                
+                console.log('result',result)
                 // Validate response structure
                 if (!result || !result.data || !result.data.booked_devices) {
                     throw new Error('Invalid response structure - missing booked_devices');
                 }
                 
                 const data = result.data;
-                
+                console.log('Loaded booked devices:', data);
                 // Ensure booked_devices is an array
                 if (!Array.isArray(data.booked_devices)) {
                     throw new Error('booked_devices is not an array');
                 }
                 
                 bookedDevicesData = data.booked_devices;
-                
+                console.log('Booked devices data:', bookedDevicesData);
                 // Create device reservation map with proper checks
                 const deviceReservationMap = {};
                 
@@ -1507,7 +1520,7 @@ function updateDeviceDisplay() {
                         };
                     }
                 });
-                
+                console.log('deviceReservationMap', typeof deviceReservationMap)
                 renderBookedDevices(deviceReservationMap);
                 return true;
             } catch (error) {
@@ -1533,7 +1546,9 @@ function updateDeviceDisplay() {
             }
             
             for (const deviceId in deviceReservationMap) {
+                console.log('device is',deviceId)
                 for (const reservationId in deviceReservationMap[deviceId]) {
+                    console.log('reservationId', reservationId)
                     const reservation = deviceReservationMap[deviceId][reservationId];
                     const now = new Date();
                     const startTime = new Date(reservation.time.start);
@@ -1583,7 +1598,12 @@ function updateDeviceDisplay() {
                     <!-- JavaScript version (unchanged) -->
                     <!-- JavaScript version (unchanged) -->
                     <div class="booked-device-card-footer">
-                        ${reservation.actions.can_cancel ? `
+                        ${reservation.user.role === 'admin' ? `
+                        <button class="btn btn-sm btn-outline-danger cancel-btn"
+                            title="Cancel Reservation"
+                            data-reservation-id="${reservation.id}">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
                         ` : ''}
                     </div>
                     `;
@@ -1722,22 +1742,18 @@ function showToast(message, type = 'info') {
 
 
 
-        // Function to handle device selection (highlighting only)
         function selectDevice(device) {
-            // Remove highlight from all devices first
-            document.querySelectorAll('.device-item').forEach(item => {
-                item.classList.remove('selected');
+            // Remove selection from all other cards first
+            document.querySelectorAll('.device-card').forEach(card => {
+                card.classList.remove('selected');
             });
-            
-            // Highlight the newly selected device
-            const deviceElement = document.querySelector(`.device-item[data-device-id="${device.device_id}"]`);
+            // Highlight the newly selected device with orange border
+            const deviceElement = document.querySelector(`.device-card[data-device-id="${device.device_id}"]`);
             if (deviceElement) {
                 deviceElement.classList.add('selected');
             }
-            
             // Store the selected device ID
             selectedDeviceId = device.device_id;
-            
             // Enable the confirm button since we have a selection
             document.getElementById('confirmDeviceSelectionBtn').disabled = false;
         }
@@ -2258,3 +2274,4 @@ function showToast(message, type = 'info') {
     </script>
 </body>
 </html>
+
