@@ -2,7 +2,11 @@ from flask import Blueprint, Response, abort, current_app, json, jsonify, render
 from flask_login import current_user, login_required
 import pytz
 from sqlalchemy import delete, exists
-from models import DeviceUsage, Reservation, Device, User, db
+from models.device import Device
+from models.device_usage import DeviceUsage
+from models.reservation import Reservation
+from models.user import User
+from models.base import db
 from datetime import datetime, timezone
 from sqlalchemy.exc import SQLAlchemyError
 from collections import OrderedDict

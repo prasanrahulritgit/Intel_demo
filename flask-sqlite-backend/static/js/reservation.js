@@ -1,301 +1,4 @@
-{% extends "base.html" %}
-{% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Device Reservation</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/admin_reservation.css') }}">
-</head>
-<body>
-    <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Admin Device Reservation</h1>
-        </div>
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="card reservation-card mb-4">
-            <div class="card-header reservation-header">
-                <h5 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Create New Reservation</h5>
-            </div>
-            <div class="card-body">
-                <form id="reservationForm" class="reservation-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    
-                    <div class="row g-3">
-                        <!-- Start Time -->
-                        <div class="col-md-6">
-                            <label for="start_time" class="form-label">Start Time</label>
-                            <div class="input-icon-group">
-                                <i class="fas fa-clock input-icon"></i>
-                                <input type="text" class="form-control form-control-lg flatpickr-input" id="start_time" 
-                                       name="start_time" placeholder="Select start time" required
-                                       data-min-date="{{ now.strftime('%Y-%m-%d %H:%M') }}">
-                            </div>
-                            <div class="quick-select-buttons mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="30">+30 min</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="60">+1 hour</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="120">+2 hours</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="180">+3 hours</button>
-                            </div>
-                        </div>
-                        
-                        <!-- End Time -->
-                        <div class="col-md-6">
-                            <label for="end_time" class="form-label">End Time</label>
-                            <div class="input-icon-group">
-                                <i class="fas fa-clock input-icon"></i>
-                                <input type="text" class="form-control form-control-lg flatpickr-input" id="end_time" 
-                                       name="end_time" placeholder="Select end time" required
-                                       data-min-date="{{ now.strftime('%Y-%m-%d %H:%M') }}">
-                            </div>
-
-                
-                            <div class="quick-select-buttons mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="30">+30 min</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="60">+1 hour</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="120">+2 hours</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary quick-select-btn" data-minutes="180">+3 hours</button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="text-center mt-4">
-                        <button type="button" id="bookReservationBtn" class="btn btn-reserve">
-                            <i class="fas fa-calendar-check me-2"></i>Book Reservation
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div id="deviceSelectionOverlay" class="overlay">
-            <div class="overlay-content">
-                <div class="overlay-header">
-                    <h3>Select a Device for Your Reservation</h3>
-                    <span class="close-overlay">&times;</span>
-                </div>
-                
-                <div class="device-tabs d-flex">
-                    <div class="device-tab active" data-tab="available">Available Devices</div>
-                    <div class="device-tab" data-tab="booked">Booked Devices</div>
-                </div>
-                
-                <div class="tab-content">
-                    <!-- Available Devices Tab -->
-                    <div id="available-devices" class="tab-pane active">
-                        <div class="filter-container mb-3">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label for="deviceFilter" class="form-label">Filter by Device ID</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="deviceFilter" placeholder="Enter device ID...">
-                                        <button class="btn btn-outline-secondary" type="button" id="clearFilter">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="server-rack-container">
-                            <!-- Loading message - will be replaced with dynamic content -->
-                            <div class="loading-message">
-                                <i class="fas fa-spinner fa-spin"></i> Loading devices...
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Booked Devices Tab -->
-                    <div id="booked-devices" class="tab-pane">
-                        <div class="filter-container mb-3">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <label for="bookedDeviceFilter" class="form-label">Filter by Device ID</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="bookedDeviceFilter" placeholder="Enter device ID...">
-                                        <button class="btn btn-outline-secondary" type="button" id="clearBookedFilter">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="server-rack-container">
-                            <div class="booked-devices-cards" id="bookedDevicesCards">
-                                <!-- Booked device cards will be populated here -->
-                                <div class="loading-message">
-                                    <i class="fas fa-spinner fa-spin"></i> Loading booked devices...
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="confirm-selection">
-                    <button id="confirmDeviceSelectionBtn" class="btn btn-reserve">
-                        <i class="fas fa-check me-2"></i>Confirm Device Selection
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
-            <div id="cancelToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header bg-success text-white">
-                    <strong class="me-auto">Success</strong>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body" id="toastMessage"></div>
-            </div>
-        </div>
-
-        <!-- Device Details Container -->
-        <div id="deviceDetailsContainer" class="device-details-container">
-            <div class="device-details-header">
-                <h4 id="deviceDetailsTitle">Device Details</h4>
-                <span class="close-details">&times;</span>
-            </div>
-            <div class="device-details-content" id="deviceDetailsContent">
-                <!-- Device details will be populated here -->
-            </div>
-        </div>
-        <div id="detailsOverlay" class="details-overlay"></div>
-
-        <div class="row">
-            <div class="col-lg-6 mb-4">
-                <div class="card shadow-sm">
-                    <div class="card-header d-flex justify-content-between align-items-center"
-             style="background-color: #1e1e1e; color: #1281d6;">
-                        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Your Reservations</h5>
-                        <div class="d-flex align-items-center">
-                            <div class="me-3">
-                                <select id="entriesPerPage" class="form-select form-select-sm">
-                                    <option value="5">5 entries</option>
-                                    <option value="10" selected>10 entries</option>
-                                    <option value="25">25 entries</option>
-                                    <option value="50">50 entries</option>
-                                </select>
-                            </div>
-                            <div class="input-group input-group-sm" style="width: 200px;">
-                                <input type="text" id="reservationSearch" class="form-control" placeholder="Search...">
-                                <button class="btn btn-outline-light" type="button">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="scrollable-table">
-                            <table id="reservationsTable" class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th class="sortable" data-sort="device">
-                                            Device <i class="fas fa-sort float-end mt-1"></i>
-                                        </th>
-                                        <th class="sortable" data-sort="startTime">
-                                            Start <i class="fas fa-sort float-end mt-1"></i>
-                                        </th>
-                                        <th class="sortable" data-sort="endTime">
-                                            End <i class="fas fa-sort float-end mt-1"></i>
-                                        </th>
-                                        <th class="sortable" data-sort="status">
-                                            Status <i class="fas fa-sort float-end mt-1"></i>
-                                        </th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reservationsBody">
-                                    {% for res in user_reservations %}
-                                    <tr class="{% if res.end_time < now %}table-secondary{% elif res.start_time <= now <= res.end_time %}table-success{% endif %}"
-                                        data-device="{{ res.device_id|lower }}"
-                                        data-start-time="{{ res.start_time.timestamp() }}"
-                                        data-end-time="{{ res.end_time.timestamp() }}"
-                                        data-status="{% if res.end_time < now %}expired{% elif res.start_time <= now <= res.end_time %}active{% else %}upcoming{% endif %}">
-                                        <td>{{ res.device_id }}</td>
-                                        <td>{{ res.start_time.strftime('%m/%d %H:%M') }}</td>
-                                        <td>{{ res.end_time.strftime('%m/%d %H:%M') }}</td>
-                                        <td>
-                                            {% if res.end_time < now %}
-                                                <span class="badge status-badge badge-expired">Expired</span>
-                                            {% elif res.start_time <= now <= res.end_time %}
-                                                <span class="badge status-badge badge-active">Active</span>
-                                            {% else %}
-                                                <span class="badge status-badge badge-upcoming">Upcoming</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <button class="btn btn-sm btn-outline-primary launch-btn me-2"
-                                                    title="Launch Dashboard"
-                                                    {% if not (res.start_time <= now <= res.end_time) %}disabled{% endif %}
-                                                    data-device-id="{{ res.device_id }}"
-                                                    data-reservation-id="{{ res.id }}">
-                                                    <i class="fas fa-rocket"></i> Launch
-                                                </button>
-
-                                                <form class="m-0 cancel-form" data-reservation-id="{{ res.id }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button type="button" class="btn btn-danger cancel-btn">
-                                                        <i class="bi bi-x-circle"></i> Cancel
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% else %}
-                                    <tr>
-                                        <td colspan="5" class="text-center py-4 text-muted">
-                                            <i class="far fa-calendar-times fa-2x mb-2"></i><br>
-                                            No reservations found
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="card-footer d-flex justify-content-between align-items-center">
-                            <div class="text-muted small">
-                                Showing <span id="showingFrom">1</span> to <span id="showingTo">10</span> of <span id="totalEntries">{{ user_reservations|length }}</span> entries
-                            </div>
-                            <nav>
-                                <ul class="pagination pagination-sm mb-0">
-                                    <li class="page-item disabled" id="prevPage">
-                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
-                                    </li>
-                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                    <li class="page-item" id="nextPage">
-                                        <a class="page-link" href="#">Next</a>
-                                    </li>
-                                </ul>
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
     document.addEventListener('DOMContentLoaded', function() {
     lucide.createIcons();
     // Global variables
@@ -318,97 +21,105 @@
     const cancelToast = document.getElementById('cancelToast');
     const toastMessage = document.getElementById('toastMessage');
 
-    // Initialize Flatpickr for datetime inputs
-    const startTimePicker = flatpickr("#start_time", {
-        enableTime: true,
-        dateFormat: "Y-m-d H:i",
-        minDate: "today",
-        time_24hr: true,
-        minuteIncrement: 1,
-        defaultHour: new Date().getHours(),
-        defaultMinute: 0,
-        utc: true,
-        onReady: function(selectedDates, dateStr, instance) {
-            instance.element.placeholder = "Select start time (hh:mm)";
+            const startTimePicker = flatpickr("#start_time", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    minDate: "today",
+    time_24hr: true,
+    minuteIncrement: 1,
+    defaultHour: new Date().getHours(),
+    defaultMinute: 0,
+    utc: true,
+    onReady: function(selectedDates, dateStr, instance) {
+        instance.element.placeholder = "Select start time (hh:mm)";
+    },
+    onChange: function(selectedDates, dateStr) {
+        // Update the end time minimum date when start time changes
+        endTimePicker.set('minDate', dateStr);
+        // If end time is before new start time, reset it
+        if (endTimePicker.selectedDates[0] && endTimePicker.selectedDates[0] <= selectedDates[0]) {
+            const newEndDate = new Date(selectedDates[0].getTime() + 60 * 60 * 1000); // +1 hour
+            endTimePicker.setDate(newEndDate);
         }
-    });
+    }
+});
 
-    const endTimePicker = flatpickr("#end_time", {
-        enableTime: true,
-        dateFormat: "Y-m-d H:i",
-        minDate: "today",
-        time_24hr: true,
-        minuteIncrement: 1,
-        defaultHour: new Date().getHours() + 1,
-        defaultMinute: 0,
-        utc: true,
-        onReady: function(selectedDates, dateStr, instance) {
-            instance.element.placeholder = "Select end time (hh:mm)";
-        }
-    });
+const endTimePicker = flatpickr("#end_time", {
+    enableTime: true,
+    dateFormat: "Y-m-d H:i",
+    minDate: "today",
+    time_24hr: true,
+    minuteIncrement: 1,
+    defaultHour: new Date().getHours() + 1,
+    defaultMinute: 0,
+    utc: true,
+    onReady: function(selectedDates, dateStr, instance) {
+        instance.element.placeholder = "Select end time (hh:mm)";
+    }
+});
 
-    // Quick select buttons for time
-    document.querySelectorAll('.quick-select-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const minutes = parseInt(this.getAttribute('data-minutes'));
-            const isStartTime = this.closest('.col-md-6').querySelector('label').textContent.includes('Start');
-            const inputId = isStartTime ? 'start_time' : 'end_time';
-            const input = document.getElementById(inputId);
-            const fp = input._flatpickr;
-            
-            if (isStartTime) {
-                const newDate = new Date(Date.now() + minutes * 60 * 1000);
-                fp.setDate(newDate);
-                startTime = fp.input.value;
+// Quick select buttons for time
+document.querySelectorAll('.quick-select-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const minutes = parseInt(this.getAttribute('data-minutes'));
+        const isStartTime = this.closest('.col-md-6').querySelector('label').textContent.includes('Start');
+        const inputId = isStartTime ? 'start_time' : 'end_time';
+        const fp = isStartTime ? startTimePicker : endTimePicker;
+        
+        if (isStartTime) {
+            const newDate = new Date(Date.now() + minutes * 60 * 1000);
+            fp.setDate(newDate);
+            // Update end time minimum date
+            endTimePicker.set('minDate', fp.selectedDates[0]);
+        } else {
+            let baseDate;
+            if (startTimePicker.selectedDates.length > 0) {
+                baseDate = startTimePicker.selectedDates[0];
             } else {
-                let baseDate;
-                if (startTime) {
-                    baseDate = new Date(startTime);
-                } else {
-                    baseDate = new Date();
-                    document.getElementById('start_time')._flatpickr.setDate(baseDate);
-                    startTime = document.getElementById('start_time').value;
-                }
-                const newDate = new Date(baseDate.getTime() + minutes * 60 * 1000);
-                fp.setDate(newDate);
+                // If no start time selected, set both start and end times
+                baseDate = new Date();
+                startTimePicker.setDate(baseDate);
+                baseDate = startTimePicker.selectedDates[0];
             }
-            endTime = document.getElementById('end_time')._flatpickr.input.value;
-        });
+            const newDate = new Date(baseDate.getTime() + minutes * 60 * 1000);
+            fp.setDate(newDate);
+        }
     });
+});
 
-        bookReservationBtn.addEventListener('click', async function() {
-            startTime = document.getElementById('start_time').value;
-            endTime = document.getElementById('end_time').value;
-            
-            if (!startTime || !endTime) {
-                showToast('Please select both start and end times');
-                return;
-            }
-            
-            const now = new Date();
-            const selectedStart = new Date(startTime);
-            
-            if (selectedStart < now) {
-                showToast('Cannot book in past time. Please select future time slots.');
-                return;
-            }
-            
-            if (new Date(endTime) <= selectedStart) {
-                showToast('End time must be after start time');
-                return;
-            }
-            
-            deviceSelectionOverlay.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            
-            try {
-                // Load both available and booked devices
-                await Promise.all([loadDevices(), loadBookedDevices()]);
-            } catch (error) {
-                console.error('Error loading devices:', error);
-                showToast('Failed to load device data', 'error');
-            }
-        });
+bookReservationBtn.addEventListener('click', async function() {
+    const startTime = document.getElementById('start_time').value;
+    const endTime = document.getElementById('end_time').value;
+    
+    if (!startTime || !endTime) {
+        showToast('Please select both start and end times');
+        return;
+    }
+    
+    const now = new Date();
+    const selectedStart = new Date(startTime);
+    
+    if (selectedStart < now) {
+        showToast('Cannot book in past time. Please select future time slots.');
+        return;
+    }
+    
+    if (new Date(endTime) <= selectedStart) {
+        showToast('End time must be after start time');
+        return;
+    }
+    
+    deviceSelectionOverlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    
+    try {
+        // Load both available and booked devices
+        await Promise.all([loadDevices(), loadBookedDevices()]);
+    } catch (error) {
+        console.error('Error loading devices:', error);
+        showToast('Failed to load device data', 'error');
+    }
+});
 
                     // Single event listener for the confirm button
             document.getElementById('confirmDeviceSelectionBtn').addEventListener('click', async function() {
@@ -1431,9 +1142,4 @@ function showToast(message, type = 'info') {
         window.location.href = fullUrl;
     }
 });
-    </script>
-</body>
-</html>
-{% endblock %}
-
-
+   

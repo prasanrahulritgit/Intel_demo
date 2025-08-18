@@ -1,10 +1,11 @@
 
 
-
 from flask import Blueprint, current_app, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 import pytz
-from models import Device, Reservation, db
+from models.device import Device
+from models.reservation import Reservation
+from models.base import db
 from datetime import datetime, timedelta
 
 device_bp = Blueprint('device', __name__)
