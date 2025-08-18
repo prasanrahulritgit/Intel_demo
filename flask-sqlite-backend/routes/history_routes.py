@@ -2,7 +2,11 @@ from flask import Blueprint, current_app, render_template, request, jsonify
 from sqlalchemy import delete
 from werkzeug.exceptions import BadRequest,Forbidden
 from datetime import datetime, timedelta
-from models import Device, DeviceUsage, Reservation, User, db
+from models.device import Device
+from models.device_usage import DeviceUsage
+from models.reservation import Reservation
+from models.user import User
+from models.base import db
 from flask_login import current_user, login_required
 import pytz
 
