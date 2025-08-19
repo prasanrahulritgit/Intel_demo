@@ -284,6 +284,7 @@ def get_booked_devices():
                 'device': device_info,
                 'user': {
                     'id': user.id,
+                    'user_name': getattr(reservation.user, 'user_name', None),
                     'role': current_user.role if current_user.is_authenticated else None
                 },
                 'time': {

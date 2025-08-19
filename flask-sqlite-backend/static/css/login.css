@@ -60,8 +60,25 @@
         top: 50%;
         left: 14px;
         transform: translateY(-50%);
-        color: #ffffff;
+        color: #000000;
         z-index: 2;
+    }
+
+    .password-group {
+        position: relative;
+    }
+
+    .password-input {
+        padding-right: 40px; /* make space for the eye icon */
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #585858;
     }
  
     .form-group input {
