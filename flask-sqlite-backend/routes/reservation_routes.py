@@ -274,8 +274,8 @@ def get_booked_devices():
  
             device_info = OrderedDict()
             device_info['id'] = device.device_id
-            device_info['ct1_ip'] = device.CT1_ip
-            device_info['pulse1_ip'] = device.Pulse1_Ip
+            # device_info['ct1_ip'] = device.CT1_ip
+            # device_info['pulse1_ip'] = device.Pulse1_Ip
             device_info['pc_ip'] = device.PC_IP
             device_info['rutomatrix_ip'] = device.Rutomatrix_ip
  
