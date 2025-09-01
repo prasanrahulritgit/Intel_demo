@@ -724,8 +724,6 @@ def get_user_reservation_details(user_id):
     """Get all reservation details for a specific user"""
     try:
         # Verify the requesting user has permission
-        
-
         # Get the user
         user = User.query.get_or_404(user_id)
 
