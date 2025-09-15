@@ -284,6 +284,7 @@ def get_booked_devices():
                 'device': device_info,
                 'user': {
                     'id': user.id,
+                    'user_name': getattr(reservation.user, 'user_name', None),
                     'role': current_user.role if current_user.is_authenticated else None
                 },
                 'time': {
@@ -723,8 +724,6 @@ def get_user_reservation_details(user_id):
     """Get all reservation details for a specific user"""
     try:
         # Verify the requesting user has permission
-        
-
         # Get the user
         user = User.query.get_or_404(user_id)
 
