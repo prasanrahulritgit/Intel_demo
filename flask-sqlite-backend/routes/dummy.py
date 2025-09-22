@@ -20,27 +20,23 @@ def get_csrf():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
-    
     if form.validate_on_submit():
         username = form.username.data
         password = form.password.data
-        
         user = User.query.filter_by(user_name=username).first()
         
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
-            
             # Check if request wants JSON response (from React)
             if request.is_json:
                 return jsonify({
                     'success': True,
                     'message': 'Logged in successfully!',
-                    'redirect': 'http://127.0.0.1:5000/'  # Explicit Flask URL
+                    'redirect': 'http://13.62.110.122:5000/'
                 })
-            
             flash('Logged in successfully!', 'success')
             next_page = request.args.get('next')
-            return redirect(next_page or 'http://127.0.0.1:5000/')  # Explicit redirect
+            return redirect(next_page or 'http://13.62.110.122:5000/')
         
         # Authentication failed
         if request.is_json:
@@ -48,7 +44,6 @@ def login():
                 'success': False,
                 'message': 'Invalid username or password'
             }), 401
-            
         flash('Invalid username or password', 'danger')
     
     # For API requests, return JSON
@@ -58,12 +53,13 @@ def login():
     # For regular web requests, render HTML
     return render_template('login.html', form=form)
 
+
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('auth.login'))
+    return redirect('http://13.62.110.122:5000/login')  # Use explicit URL instead of url_for
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
